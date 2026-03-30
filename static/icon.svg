@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4361ee"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#g)"/>
+  <!-- truck body -->
+  <rect x="60" y="210" width="260" height="150" rx="18" fill="#fff" opacity=".95"/>
+  <!-- cab -->
+  <path d="M320 260 L320 360 L430 360 L430 295 Q430 260 395 260 Z" fill="#fff" opacity=".9"/>
+  <!-- window -->
+  <path d="M330 270 L330 310 L418 310 L418 290 Q418 270 398 270 Z" fill="url(#g)" opacity=".7"/>
+  <!-- wheels -->
+  <circle cx="130" cy="366" r="32" fill="#1e293b"/>
+  <circle cx="130" cy="366" r="16" fill="#fff" opacity=".4"/>
+  <circle cx="270" cy="366" r="32" fill="#1e293b"/>
+  <circle cx="270" cy="366" r="16" fill="#fff" opacity=".4"/>
+  <circle cx="390" cy="366" r="32" fill="#1e293b"/>
+  <circle cx="390" cy="366" r="16" fill="#fff" opacity=".4"/>
+  <!-- speed lines -->
+  <rect x="60" y="170" width="120" height="12" rx="6" fill="#fff" opacity=".3"/>
+  <rect x="60" y="148" width="80" height="10" rx="5" fill="#fff" opacity=".2"/>
+</svg>
