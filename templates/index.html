@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Logistic Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+/* ── variables ───────────────────────────────────────────── */
+:root{
+  --primary:#4361ee;
+  --primary-dark:#3451d1;
+  --primary-light:#e8edff;
+  --sidebar-bg:#0f172a;
+  --sidebar-hover:rgba(255,255,255,.07);
+  --sidebar-active:rgba(67,97,238,.25);
+  --bg:#f1f5fd;
+  --card:#fff;
+  --border:#eaedf5;
+  --text:#1e293b;
+  --muted:#94a3b8;
+  --radius:16px;
+  --radius-sm:10px;
+  --shadow:0 4px 24px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.12);
+  --sidebar-w:256px;
+  --transit-from:#f59e0b; --transit-to:#d97706;
+  --delivered-from:#10b981; --delivered-to:#059669;
+  --returned-from:#ef4444; --returned-to:#dc2626;
+  --total-from:#4361ee;    --total-to:#6366f1;
+}
+
+/* ── reset ───────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  display:flex;min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── sidebar overlay (mobile) ───────────────────────────── */
+.sidebar-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.5);backdrop-filter:blur(2px);
+  z-index:99;opacity:0;transition:opacity .3s;
+}
+.sidebar-overlay.show{display:block;opacity:1}
+
+/* ── sidebar ─────────────────────────────────────────────── */
+.sidebar{
+  width:var(--sidebar-w);
+  background:var(--sidebar-bg);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;z-index:100;
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+.sidebar::before{
+  content:'';position:absolute;top:-60px;right:-60px;
+  width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle,rgba(99,102,241,.18) 0%,transparent 70%);
+  pointer-events:none;
+}
+.sidebar::after{
+  content:'';position:absolute;bottom:-40px;left:-40px;
+  width:160px;height:160px;border-radius:50%;
+  background:radial-gradient(circle,rgba(67,97,238,.12) 0%,transparent 70%);
+  pointer-events:none;
+}
+
+.sidebar-logo{
+  padding:24px 20px 22px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;gap:12px;position:relative;
+}
+.logo-box{
+  width:40px;height:40px;border-radius:12px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--primary),#818cf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#fff;
+  box-shadow:0 4px 14px rgba(67,97,238,.45);
+}
+.logo-text h1{font-size:16px;font-weight:800;color:#fff;letter-spacing:.2px}
+.logo-text span{font-size:11px;color:rgba(255,255,255,.35);font-weight:400;display:block;margin-top:1px}
+
+.sidebar-close{
+  display:none;margin-left:auto;
+  background:none;border:none;color:rgba(255,255,255,.4);
+  font-size:18px;cursor:pointer;padding:4px;
+}
+
+.sidebar-nav{padding:16px 12px;flex:1;overflow-y:auto}
+.nav-section{font-size:10px;font-weight:700;color:rgba(255,255,255,.25);
+  text-transform:uppercase;letter-spacing:1px;padding:8px 8px 6px;margin-top:4px}
+.nav-item{
+  display:flex;align-items:center;gap:11px;
+  padding:11px 12px;border-radius:var(--radius-sm);
+  color:rgba(255,255,255,.5);cursor:pointer;
+  transition:all .2s;font-size:13.5px;font-weight:500;
+  margin-bottom:2px;user-select:none;position:relative;
+}
+.nav-item .nav-icon{
+  width:34px;height:34px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;background:rgba(255,255,255,.06);
+  transition:all .2s;
+}
+.nav-item:hover{color:rgba(255,255,255,.85);background:var(--sidebar-hover)}
+.nav-item:hover .nav-icon{background:rgba(255,255,255,.1)}
+.nav-item.active{color:#fff;background:var(--sidebar-active)}
+.nav-item.active .nav-icon{background:var(--primary);box-shadow:0 4px 12px rgba(67,97,238,.4)}
+
+.sidebar-footer{
+  padding:16px 20px;border-top:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;gap:10px;
+}
+.sidebar-footer .avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--primary),#818cf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:#fff;font-weight:700;flex-shrink:0;
+}
+.sidebar-footer .user-name{font-size:12px;color:rgba(255,255,255,.7);font-weight:500}
+.sidebar-footer .user-role{font-size:11px;color:rgba(255,255,255,.3)}
+
+/* ── topbar (mobile only) ────────────────────────────────── */
+.topbar{
+  display:none;position:fixed;top:0;left:0;right:0;
+  height:56px;background:var(--sidebar-bg);z-index:90;
+  align-items:center;padding:0 16px;gap:12px;
+  box-shadow:0 2px 12px rgba(0,0,0,.2);
+}
+.topbar .hamburger{
+  background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:6px;
+}
+.topbar .topbar-logo{font-size:15px;font-weight:800;color:#fff}
+
+/* ── main ────────────────────────────────────────────────── */
+.main{margin-left:var(--sidebar-w);flex:1;padding:28px 28px 48px;min-height:100vh}
+
+.page{display:none;animation:fadeIn .25s ease}.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── page header ─────────────────────────────────────────── */
+.page-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;gap:12px;flex-wrap:wrap;
+}
+.page-header-left h2{font-size:24px;font-weight:800;color:var(--text)}
+.page-header-left p{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* ── stat cards ──────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stat-card{
+  border-radius:var(--radius);padding:22px 20px;
+  display:flex;align-items:center;gap:16px;
+  cursor:pointer;position:relative;overflow:hidden;
+  transition:transform .2s,box-shadow .2s;
+  box-shadow:var(--shadow);
+}
+.stat-card::after{
+  content:'';position:absolute;top:-20px;right:-20px;
+  width:100px;height:100px;border-radius:50%;
+  background:rgba(255,255,255,.1);pointer-events:none;
+}
+.stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+.stat-card.c-total    {background:linear-gradient(135deg,var(--total-from),var(--total-to))}
+.stat-card.c-transit  {background:linear-gradient(135deg,var(--transit-from),var(--transit-to))}
+.stat-card.c-delivered{background:linear-gradient(135deg,var(--delivered-from),var(--delivered-to))}
+.stat-card.c-returned {background:linear-gradient(135deg,var(--returned-from),var(--returned-to))}
+
+.stat-icon-wrap{
+  width:52px;height:52px;border-radius:14px;flex-shrink:0;
+  background:rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;color:#fff;
+  backdrop-filter:blur(4px);
+}
+.stat-info .stat-val{font-size:32px;font-weight:800;color:#fff;line-height:1}
+.stat-info .stat-lbl{font-size:12px;color:rgba(255,255,255,.8);margin-top:4px;font-weight:500}
+.stat-card .stat-arrow{
+  position:absolute;bottom:14px;right:14px;
+  color:rgba(255,255,255,.4);font-size:12px;
+  transition:transform .2s,color .2s;
+}
+.stat-card:hover .stat-arrow{transform:translate(2px,-2px);color:rgba(255,255,255,.8)}
+
+/* ── charts ──────────────────────────────────────────────── */
+.charts-grid{display:grid;grid-template-columns:340px 1fr;gap:16px}
+.chart-card{
+  background:var(--card);border-radius:var(--radius);padding:22px;
+  box-shadow:var(--shadow);
+}
+.chart-card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:18px;
+}
+.chart-card-header h3{font-size:15px;font-weight:700;color:var(--text)}
+.chart-card-header p{font-size:12px;color:var(--muted);margin-top:2px}
+.chart-badge{
+  font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;
+  background:var(--primary-light);color:var(--primary);
+}
+.chart-wrap{position:relative;height:270px}
+
+/* ── form card ───────────────────────────────────────────── */
+.form-card{
+  background:var(--card);border-radius:var(--radius);
+  box-shadow:var(--shadow);margin-bottom:20px;
+  display:none;overflow:hidden;
+}
+.form-card.open{display:block;animation:slideDown .25s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+
+.form-card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 24px;
+  background:linear-gradient(135deg,var(--primary),#6366f1);
+}
+.form-card-header h3{font-size:15px;font-weight:700;color:#fff}
+.form-card-header p{font-size:12px;color:rgba(255,255,255,.7);margin-top:1px}
+.form-close-btn{
+  background:rgba(255,255,255,.15);border:none;cursor:pointer;
+  color:#fff;font-size:14px;padding:6px 8px;border-radius:8px;
+  transition:background .2s;backdrop-filter:blur(4px);
+}
+.form-close-btn:hover{background:rgba(255,255,255,.25)}
+
+.form-body{padding:22px 24px}
+
+.form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group label{
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.6px;
+}
+.form-group input,
+.form-group select{
+  padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font-size:14px;font-family:inherit;color:var(--text);
+  background:#fafbff;outline:none;
+  transition:border-color .2s,box-shadow .2s,background .2s;
+}
+.form-group input:focus,
+.form-group select:focus{
+  border-color:var(--primary);background:#fff;
+  box-shadow:0 0 0 3px rgba(67,97,238,.1);
+}
+.form-group input::placeholder{color:#c4cad6}
+
+/* file upload */
+.file-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.file-item{display:flex;align-items:center;gap:8px;flex:1;min-width:200px}
+.file-lbl{
+  display:flex;align-items:center;gap:9px;flex:1;
+  padding:10px 14px;border:1.5px dashed #c8d0e7;border-radius:var(--radius-sm);
+  cursor:pointer;font-size:13px;color:var(--muted);
+  background:#fafbff;transition:all .2s;
+}
+.file-lbl:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.file-lbl input{display:none}
+.file-lbl i{font-size:16px;flex-shrink:0}
+.file-lbl .fname{
+  font-size:12px;color:var(--primary);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;
+}
+.file-preview-btn{
+  display:none;flex-shrink:0;
+  width:36px;height:36px;border-radius:var(--radius-sm);border:none;
+  background:var(--primary-light);color:var(--primary);
+  font-size:14px;cursor:pointer;
+  align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.file-preview-btn:hover{background:var(--primary);color:#fff;transform:scale(1.05)}
+
+/* buttons */
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{
+  padding:10px 20px;border-radius:var(--radius-sm);border:none;
+  font-size:13px;font-weight:600;font-family:inherit;
+  cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  transition:all .18s;position:relative;overflow:hidden;
+}
+.btn::after{
+  content:'';position:absolute;inset:0;
+  background:rgba(255,255,255,0);transition:background .18s;
+}
+.btn:hover::after{background:rgba(255,255,255,.12)}
+.btn-save  {background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;box-shadow:0 4px 14px rgba(67,97,238,.35)}
+.btn-update{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 14px rgba(16,185,129,.3)}
+.btn-delete{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;box-shadow:0 4px 14px rgba(239,68,68,.3)}
+.btn-clear {background:#f1f5f9;color:#64748b;border:1.5px solid var(--border)}
+.btn-clear:hover{background:#e8edff;color:var(--primary)}
+.btn:disabled{opacity:.38;cursor:not-allowed;pointer-events:none}
+
+/* add shipment button */
+.add-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 20px;border-radius:var(--radius-sm);border:none;
+  background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;
+  font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;
+  box-shadow:0 4px 14px rgba(67,97,238,.35);transition:all .2s;
+}
+.add-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(67,97,238,.45)}
+
+/* ── table ───────────────────────────────────────────────── */
+.table-card{
+  background:var(--card);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.table-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  flex-wrap:wrap;gap:10px;
+}
+.table-hdr h3{font-size:15px;font-weight:700}
+.table-hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+.filter-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px 5px 12px;border-radius:20px;
+  background:var(--primary-light);color:var(--primary);
+  font-size:12px;font-weight:600;
+}
+.filter-pill button{
+  background:none;border:none;cursor:pointer;
+  color:var(--primary);font-size:13px;padding:0 2px;line-height:1;
+  display:flex;align-items:center;transition:color .15s;
+}
+.filter-pill button:hover{color:#ef4444}
+
+.rec-count{
+  font-size:12px;color:var(--muted);font-weight:600;
+  background:#f1f5f9;padding:5px 12px;border-radius:20px;
+}
+
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:560px}
+thead th{
+  background:#f8fafd;padding:11px 16px;text-align:left;
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.6px;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+tbody td{
+  padding:13px 16px;font-size:13.5px;color:#374151;
+  border-bottom:1px solid #f8f9fc;
+}
+tbody tr{cursor:pointer;transition:background .14s}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f8fafd}
+tbody tr.selected td{background:#eef1ff}
+tbody tr.selected td:first-child{
+  border-left:3px solid var(--primary);
+  padding-left:13px;
+}
+
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;
+}
+.badge::before{
+  content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0;
+}
+.badge-transit  {background:#fef3c7;color:#92400e}.badge-transit::before{background:#f59e0b}
+.badge-delivered{background:#d1fae5;color:#065f46}.badge-delivered::before{background:#10b981}
+.badge-returned {background:#fee2e2;color:#991b1b}.badge-returned::before{background:#ef4444}
+
+.track-btn{
+  background:var(--primary-light);border:none;cursor:pointer;
+  width:32px;height:32px;border-radius:8px;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--primary);font-size:14px;transition:all .15s;
+}
+.track-btn:hover{background:var(--primary);color:#fff;transform:scale(1.1)}
+
+.empty-state{text-align:center;padding:56px 20px;color:var(--muted)}
+.empty-state .empty-icon{
+  width:72px;height:72px;border-radius:50%;
+  background:var(--primary-light);color:var(--primary);
+  font-size:30px;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+}
+.empty-state p{font-size:14px;font-weight:500}
+.empty-state small{font-size:12px;color:#cbd5e1;display:block;margin-top:4px}
+
+/* ── toast ───────────────────────────────────────────────── */
+.toast{
+  position:fixed;bottom:28px;right:28px;
+  background:#0f172a;color:#fff;
+  padding:13px 18px;border-radius:var(--radius-sm);font-size:13px;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:9999;
+  transform:translateY(24px);opacity:0;
+  transition:all .32s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:none;max-width:320px;
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-icon-wrap{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:13px;
+}
+.toast.success .toast-icon-wrap{background:rgba(16,185,129,.2);color:#10b981}
+.toast.error   .toast-icon-wrap{background:rgba(239,68,68,.2);color:#ef4444}
+
+/* ── responsive ──────────────────────────────────────────── */
+@media(max-width:1280px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .charts-grid{grid-template-columns:1fr}
+}
+@media(max-width:900px){
+  :root{--sidebar-w:256px}
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-close{display:block}
+  .topbar{display:flex}
+  .main{margin-left:0;padding:80px 16px 40px}
+  .form-grid{grid-template-columns:repeat(2,1fr)}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+  .stats-grid{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .btn-row{flex-direction:column}
+  .btn-row .btn{justify-content:center}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .toast{left:16px;right:16px;bottom:16px}
+  .file-row{flex-direction:column}
+  .file-item{min-width:0;width:100%}
+}
+</style>
+</head>
+<body>
+
+<!-- mobile sidebar overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- mobile topbar -->
+<div class="topbar">
+  <button class="hamburger" onclick="openSidebar()"><i class="fa fa-bars"></i></button>
+  <div class="logo-box" style="width:30px;height:30px;font-size:14px;border-radius:8px">
+    <i class="fa fa-truck-fast" style="color:#fff"></i>
+  </div>
+  <span class="topbar-logo">Logistic Pro</span>
+</div>
+
+<!-- ═══════════════  SIDEBAR  ═══════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-box"><i class="fa fa-truck-fast" style="color:#fff"></i></div>
+    <div class="logo-text">
+      <h1>Logistic Pro</h1>
+      <span>Shipping Management</span>
+    </div>
+    <button class="sidebar-close" onclick="closeSidebar()"><i class="fa fa-xmark"></i></button>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">Main Menu</div>
+    <div class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
+      <div class="nav-icon"><i class="fa fa-chart-pie"></i></div>
+      Dashboard
+    </div>
+    <div class="nav-item" id="nav-shipment" onclick="navigate('shipment')">
+      <div class="nav-icon"><i class="fa fa-box"></i></div>
+      Shipment
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="avatar">L</div>
+    <div>
+      <div class="user-name">Logistic Pro</div>
+      <div class="user-role">Admin</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════  MAIN  ═══════════════ -->
+<main class="main">
+
+  <!-- ───────────  DASHBOARD  ─────────── -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Dashboard</h2>
+        <p>Overview of all shipment activity</p>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card c-total" onclick="goFilter('','')">
+        <div class="stat-icon-wrap"><i class="fa fa-boxes-stacked"></i></div>
+        <div class="stat-info">
+          <div class="stat-val" id="st-total">0</div>
+          <div class="stat-lbl">Total Shipments</div>
+        </div>
+        <i class="fa fa-arrow-up-right stat-arrow"></i>
+      </div>
+      <div class="stat-card c-transit" onclick="goFilter('status','Transit')">
+        <div class="stat-icon-wrap"><i class="fa fa-truck"></i></div>
+        <div class="stat-info">
+          <div class="stat-val" id="st-transit">0</div>
+          <div class="stat-lbl">In Transit</div>
+        </div>
+        <i class="fa fa-arrow-up-right stat-arrow"></i>
+      </div>
+      <div class="stat-card c-delivered" onclick="goFilter('status','Delivered')">
+        <div class="stat-icon-wrap"><i class="fa fa-circle-check"></i></div>
+        <div class="stat-info">
+          <div class="stat-val" id="st-delivered">0</div>
+          <div class="stat-lbl">Delivered</div>
+        </div>
+        <i class="fa fa-arrow-up-right stat-arrow"></i>
+      </div>
+      <div class="stat-card c-returned" onclick="goFilter('status','Returned')">
+        <div class="stat-icon-wrap"><i class="fa fa-rotate-left"></i></div>
+        <div class="stat-info">
+          <div class="stat-val" id="st-returned">0</div>
+          <div class="stat-lbl">Returned</div>
+        </div>
+        <i class="fa fa-arrow-up-right stat-arrow"></i>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h3>Status Breakdown</h3>
+            <p>Click a segment to filter</p>
+          </div>
+          <span class="chart-badge"><i class="fa fa-chart-pie" style="margin-right:4px"></i>Donut</span>
+        </div>
+        <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h3>Monthly Shipments</h3>
+            <p>Click a bar to filter by month</p>
+          </div>
+          <span class="chart-badge"><i class="fa fa-chart-bar" style="margin-right:4px"></i>Bar</span>
+        </div>
+        <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────  SHIPMENT  ─────────── -->
+  <div id="page-shipment" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h2>Shipment</h2>
+        <p>Manage all your shipment records</p>
+      </div>
+      <button class="add-btn" onclick="openNewForm()">
+        <i class="fa fa-plus"></i> Add Shipment
+      </button>
+    </div>
+
+    <!-- Form -->
+    <div class="form-card" id="form-card">
+      <div class="form-card-header">
+        <div>
+          <h3 id="form-title">New Shipment</h3>
+          <p id="form-subtitle">Fill in the details below</p>
+        </div>
+        <button class="form-close-btn" onclick="closeForm()"><i class="fa fa-xmark"></i></button>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="f-date">
+          </div>
+          <div class="form-group">
+            <label>AWB No.</label>
+            <input type="text" id="f-awb" placeholder="e.g. 1Z9999999">
+          </div>
+          <div class="form-group">
+            <label>Cost</label>
+            <input type="number" id="f-cost" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="f-status">
+              <option value="">— Select Status —</option>
+              <option value="Transit">Transit</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Returned">Returned</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="file-row">
+          <div class="file-item">
+            <label class="file-lbl">
+              <i class="fa fa-paperclip"></i>
+              <span id="awb-lbl-txt">Attach AWB Document</span>
+              <input type="file" id="f-awb-file" onchange="onFileChange(this,'awb-lbl-txt','awb-preview')">
+            </label>
+            <button class="file-preview-btn" id="awb-preview" onclick="previewFile('awb')" title="Preview AWB" type="button">
+              <i class="fa fa-eye"></i>
+            </button>
+          </div>
+          <div class="file-item">
+            <label class="file-lbl">
+              <i class="fa fa-file-invoice-dollar"></i>
+              <span id="inv-lbl-txt">Attach Invoice</span>
+              <input type="file" id="f-inv-file" onchange="onFileChange(this,'inv-lbl-txt','inv-preview')">
+            </label>
+            <button class="file-preview-btn" id="inv-preview" onclick="previewFile('inv')" title="Preview Invoice" type="button">
+              <i class="fa fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-save"   id="btn-save"   onclick="saveRecord()">
+            <i class="fa fa-floppy-disk"></i> Save
+          </button>
+          <button class="btn btn-update" id="btn-update" onclick="updateRecord()" disabled>
+            <i class="fa fa-pen-to-square"></i> Update
+          </button>
+          <button class="btn btn-delete" id="btn-delete" onclick="deleteRecord()" disabled>
+            <i class="fa fa-trash"></i> Delete
+          </button>
+          <button class="btn btn-clear" onclick="clearForm()">
+            <i class="fa fa-rotate-right"></i> Clear
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-hdr">
+        <h3>Shipment Records</h3>
+        <div class="table-hdr-right">
+          <div class="filter-pill" id="filter-pill" style="display:none">
+            <i class="fa fa-filter" style="font-size:10px"></i>
+            <span id="filter-pill-text"></span>
+            <button onclick="clearFilter()" title="Clear filter"><i class="fa fa-xmark"></i></button>
+          </div>
+          <span class="rec-count" id="rec-count">0 records</span>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>AWB No.</th>
+              <th>Cost</th>
+              <th>Status</th>
+              <th>Track</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- toast -->
+<div class="toast" id="toast">
+  <div class="toast-icon-wrap"><i id="toast-icon"></i></div>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── state ─────────────────────────────────────────────────────────
+let allRows    = [];
+let selectedId = null;
+let statusChart = null;
+let monthChart  = null;
+let filterStatus = '';
+let filterMonth  = '';
+let monthlyData  = [];
+let awbObjectUrl  = null;   // blob URL for newly selected AWB file
+let invObjectUrl  = null;   // blob URL for newly selected invoice file
+let awbSavedFile  = null;   // filename of saved AWB in DB
+let invSavedFile  = null;   // filename of saved invoice in DB
+
+// ── mobile sidebar ────────────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
+}
+
+// ── navigation ────────────────────────────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-'  + page).classList.add('active');
+  if (page === 'dashboard') updateDashboard();
+  closeSidebar();
+}
+
+// ── filter navigation ─────────────────────────────────────────────
+function goFilter(type, value) {
+  filterStatus = type === 'status' ? value : '';
+  filterMonth  = type === 'month'  ? value : '';
+  navigate('shipment');
+  renderTable();
+}
+function clearFilter() {
+  filterStatus = '';
+  filterMonth  = '';
+  renderTable();
+}
+
+// ── data ──────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const r = await fetch('/api/shipments');
+    allRows = await r.json();
+    saveLocal();
+  } catch {
+    const c = localStorage.getItem('lp_v1');
+    if (c) allRows = JSON.parse(c);
+  }
+  renderTable();
+  updateDashboard();
+}
+function saveLocal() {
+  localStorage.setItem('lp_v1', JSON.stringify(allRows));
+}
+
+// ── form helpers ──────────────────────────────────────────────────
+function openNewForm() {
+  selectedId = null;
+  clearForm();
+  document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('form-title').textContent = 'New Shipment';
+  document.getElementById('form-subtitle').textContent = 'Fill in the details below';
+  document.getElementById('btn-save').disabled   = false;
+  document.getElementById('btn-update').disabled = true;
+  document.getElementById('btn-delete').disabled = true;
+  document.getElementById('form-card').classList.add('open');
+  document.getElementById('form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeForm() {
+  document.getElementById('form-card').classList.remove('open');
+  selectedId = null;
+  renderTable();
+}
+
+function clearForm() {
+  ['f-date','f-awb','f-cost','f-status'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f-awb-file').value = '';
+  document.getElementById('f-inv-file').value  = '';
+  document.getElementById('awb-lbl-txt').textContent = 'Attach AWB Document';
+  document.getElementById('inv-lbl-txt').textContent = 'Attach Invoice';
+  document.getElementById('awb-lbl-txt').classList.remove('fname');
+  document.getElementById('inv-lbl-txt').classList.remove('fname');
+  // clear preview state
+  if (awbObjectUrl) { URL.revokeObjectURL(awbObjectUrl); awbObjectUrl = null; }
+  if (invObjectUrl) { URL.revokeObjectURL(invObjectUrl); invObjectUrl = null; }
+  awbSavedFile = null;
+  invSavedFile = null;
+  document.getElementById('awb-preview').style.display = 'none';
+  document.getElementById('inv-preview').style.display = 'none';
+}
+
+function onFileChange(input, lblId, previewBtnId) {
+  const el  = document.getElementById(lblId);
+  const btn = document.getElementById(previewBtnId);
+  const isAwb = lblId === 'awb-lbl-txt';
+
+  // revoke old blob URL to free memory
+  if (isAwb && awbObjectUrl) { URL.revokeObjectURL(awbObjectUrl); awbObjectUrl = null; }
+  if (!isAwb && invObjectUrl) { URL.revokeObjectURL(invObjectUrl); invObjectUrl = null; }
+
+  if (input.files[0]) {
+    el.textContent = input.files[0].name;
+    el.classList.add('fname');
+    const url = URL.createObjectURL(input.files[0]);
+    if (isAwb) awbObjectUrl = url; else invObjectUrl = url;
+    btn.style.display = 'flex';
+  } else {
+    el.textContent = isAwb ? 'Attach AWB Document' : 'Attach Invoice';
+    el.classList.remove('fname');
+    btn.style.display = 'none';
+  }
+}
+
+function previewFile(type) {
+  const isAwb = type === 'awb';
+  const url = isAwb
+    ? (awbObjectUrl || (awbSavedFile ? '/uploads/' + awbSavedFile : null))
+    : (invObjectUrl || (invSavedFile ? '/uploads/' + invSavedFile : null));
+  if (url) window.open(url, '_blank');
+  else toast('No file attached to preview.', 'error');
+}
+
+function buildFD() {
+  const fd = new FormData();
+  fd.append('date',   document.getElementById('f-date').value);
+  fd.append('awb_no', document.getElementById('f-awb').value.trim());
+  fd.append('cost',   document.getElementById('f-cost').value);
+  fd.append('status', document.getElementById('f-status').value);
+  const af = document.getElementById('f-awb-file').files[0];
+  const iv = document.getElementById('f-inv-file').files[0];
+  if (af) fd.append('awb_file', af);
+  if (iv) fd.append('invoice_file', iv);
+  return fd;
+}
+
+function validate() {
+  const awb = document.getElementById('f-awb').value.trim();
+  if (!awb) {
+    toast('AWB No. is required.', 'error'); return false;
+  }
+  // duplicate check on frontend (excluding the currently selected record)
+  const dup = allRows.find(r => r.awb_no === awb && r.id !== selectedId);
+  if (dup) {
+    toast('AWB No. "' + awb + '" already exists.', 'error'); return false;
+  }
+  if (!document.getElementById('f-status').value) {
+    toast('Please select a status.', 'error'); return false;
+  }
+  return true;
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────
+async function saveRecord() {
+  if (!validate()) return;
+  try {
+    const res  = await fetch('/api/shipments', { method: 'POST', body: buildFD() });
+    const data = await res.json();
+    if (data.success) {
+      allRows.unshift(data.record);
+      saveLocal(); closeForm(); renderTable(); updateDashboard();
+      toast('Shipment saved successfully!', 'success');
+    } else {
+      toast(data.error || 'Save failed.', 'error');
+    }
+  } catch { toast('Save failed. Please try again.', 'error'); }
+}
+
+async function updateRecord() {
+  const sid = selectedId;
+  if (!sid || !validate()) return;
+  try {
+    const res  = await fetch('/api/shipments/' + sid, { method: 'PUT', body: buildFD() });
+    const data = await res.json();
+    if (data.success) {
+      const idx = allRows.findIndex(r => r.id === sid);
+      if (idx !== -1) allRows[idx] = data.record;
+      saveLocal(); selectedId = null; closeForm(); renderTable(); updateDashboard();
+      toast('Shipment updated!', 'success');
+    } else {
+      toast(data.error || 'Update failed.', 'error');
+    }
+  } catch { toast('Update failed. Please try again.', 'error'); }
+}
+
+async function deleteRecord() {
+  const sid = selectedId;
+  if (!sid) return;
+  if (!confirm('Delete this shipment? This cannot be undone.')) return;
+  try {
+    await fetch('/api/shipments/' + sid, { method: 'DELETE' });
+    allRows = allRows.filter(r => r.id !== sid);
+    saveLocal(); selectedId = null; closeForm(); renderTable(); updateDashboard();
+    toast('Shipment deleted.', 'success');
+  } catch { toast('Delete failed. Please try again.', 'error'); }
+}
+
+// ── table ─────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tbl-body');
+  let rows = allRows;
+  if (filterStatus) rows = rows.filter(r => r.status === filterStatus);
+  if (filterMonth)  rows = rows.filter(r => r.date && r.date.slice(0,7) === filterMonth);
+
+  // filter pill
+  const pill = document.getElementById('filter-pill');
+  const pillText = document.getElementById('filter-pill-text');
+  if (filterStatus) {
+    pillText.textContent = filterStatus;
+    pill.style.display = 'inline-flex';
+  } else if (filterMonth) {
+    const [y, m] = filterMonth.split('-');
+    pillText.textContent = new Date(+y, +m-1).toLocaleString('default', {month:'long', year:'numeric'});
+    pill.style.display = 'inline-flex';
+  } else {
+    pill.style.display = 'none';
+  }
+
+  document.getElementById('rec-count').textContent = rows.length + ' record' + (rows.length !== 1 ? 's' : '');
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">
+      <div class="empty-icon"><i class="fa fa-box-open"></i></div>
+      <p>${allRows.length ? 'No records match this filter.' : 'No shipments yet'}</p>
+      <small>${allRows.length ? 'Try clearing the filter to see all records.' : 'Click Add Shipment to create your first record.'}</small>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r, i) => {
+    const sk   = (r.status || '').toLowerCase();
+    const cost = r.cost != null ? 'AED ' + parseFloat(r.cost).toFixed(2) : '—';
+    const sel  = selectedId === r.id ? ' selected' : '';
+    return `
+    <tr class="${sel}" onclick="selectRow(${r.id})">
+      <td><span style="color:var(--muted);font-weight:600">${i+1}</span></td>
+      <td>${r.date || '—'}</td>
+      <td><span style="font-weight:600;color:var(--text)">${r.awb_no || '—'}</span></td>
+      <td><span style="font-weight:600">${cost}</span></td>
+      <td><span class="badge badge-${sk}">${r.status || '—'}</span></td>
+      <td>
+        <button class="track-btn" onclick="trackShipment(event,'${r.awb_no||''}')" title="Track shipment">
+          <i class="fa fa-location-dot"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function selectRow(id) {
+  selectedId = id;
+  const r = allRows.find(x => x.id === id);
+  if (!r) return;
+
+  document.getElementById('form-title').textContent = 'Edit Shipment';
+  document.getElementById('form-subtitle').textContent = 'AWB: ' + (r.awb_no || '—');
+  document.getElementById('f-date').value   = r.date   || '';
+  document.getElementById('f-awb').value    = r.awb_no || '';
+  document.getElementById('f-cost').value   = r.cost   != null ? r.cost : '';
+  document.getElementById('f-status').value = r.status || '';
+
+  const awbTxt = document.getElementById('awb-lbl-txt');
+  const invTxt = document.getElementById('inv-lbl-txt');
+  if (r.awb_file)     { awbTxt.textContent = r.awb_file;     awbTxt.classList.add('fname'); }
+  else                { awbTxt.textContent = 'Attach AWB Document'; awbTxt.classList.remove('fname'); }
+  if (r.invoice_file) { invTxt.textContent = r.invoice_file; invTxt.classList.add('fname'); }
+  else                { invTxt.textContent = 'Attach Invoice'; invTxt.classList.remove('fname'); }
+  // store saved filenames and show/hide preview buttons
+  awbSavedFile = r.awb_file || null;
+  invSavedFile = r.invoice_file || null;
+  document.getElementById('awb-preview').style.display = r.awb_file ? 'flex' : 'none';
+  document.getElementById('inv-preview').style.display = r.invoice_file ? 'flex' : 'none';
+
+  document.getElementById('btn-save').disabled   = true;
+  document.getElementById('btn-update').disabled = false;
+  document.getElementById('btn-delete').disabled = false;
+  document.getElementById('form-card').classList.add('open');
+  document.getElementById('form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  renderTable();
+}
+
+function trackShipment(e, awb) {
+  e.stopPropagation();
+  if (!awb) { toast('No AWB number for this shipment.', 'error'); return; }
+  window.open('https://parcelsapp.com/en/tracking/' + encodeURIComponent(awb), '_blank');
+}
+
+// ── animated counter ──────────────────────────────────────────────
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  const start = parseInt(el.textContent) || 0;
+  if (start === target) return;
+  const dur = 600, steps = 20, inc = (target - start) / steps;
+  let cur = start, n = 0;
+  const t = setInterval(() => {
+    n++; cur += inc;
+    el.textContent = Math.round(n >= steps ? target : cur);
+    if (n >= steps) clearInterval(t);
+  }, dur / steps);
+}
+
+// ── dashboard ─────────────────────────────────────────────────────
+async function updateDashboard() {
+  let d;
+  try {
+    const res = await fetch('/api/dashboard');
+    d = await res.json();
+  } catch {
+    const monthly = {};
+    allRows.forEach(r => { if (r.date) { const ym=r.date.slice(0,7); monthly[ym]=(monthly[ym]||0)+1; }});
+    d = {
+      total: allRows.length,
+      transit:   allRows.filter(r=>r.status==='Transit').length,
+      delivered: allRows.filter(r=>r.status==='Delivered').length,
+      returned:  allRows.filter(r=>r.status==='Returned').length,
+      monthly: Object.keys(monthly).sort().map(m=>({month:m,count:monthly[m]}))
+    };
+  }
+  animateCount('st-total',     d.total);
+  animateCount('st-transit',   d.transit);
+  animateCount('st-delivered', d.delivered);
+  animateCount('st-returned',  d.returned);
+  renderStatusChart(d.transit, d.delivered, d.returned);
+  renderMonthlyChart(d.monthly || []);
+}
+
+function renderStatusChart(transit, delivered, returned) {
+  const ctx = document.getElementById('statusChart').getContext('2d');
+  if (statusChart) statusChart.destroy();
+  const statusLabels = ['Transit', 'Delivered', 'Returned'];
+  statusChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: [transit, delivered, returned],
+        backgroundColor: ['#f59e0b','#10b981','#ef4444'],
+        borderWidth: 4, borderColor: '#fff', hoverOffset: 10
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      onClick: (e, els) => { if (els.length) goFilter('status', statusLabels[els[0].index]); },
+      onHover: (e) => { e.native.target.style.cursor = 'pointer'; },
+      plugins: {
+        legend: { position:'bottom', labels:{ font:{size:12,family:'Inter'}, padding:16, usePointStyle:true } },
+        datalabels: { color:'#fff', font:{weight:'bold',size:13}, formatter: v => v>0 ? v : '' }
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+
+function renderMonthlyChart(monthly) {
+  monthlyData = monthly;
+  const ctx = document.getElementById('monthlyChart').getContext('2d');
+  if (monthChart) monthChart.destroy();
+  const labels = monthly.map(m => {
+    const [y, mo] = m.month.split('-');
+    return new Date(+y, +mo-1).toLocaleString('default', {month:'short', year:'2-digit'});
+  });
+  const values = monthly.map(m => m.count);
+  monthChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Shipments', data: values,
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 270);
+          g.addColorStop(0, 'rgba(67,97,238,.9)');
+          g.addColorStop(1, 'rgba(99,102,241,.4)');
+          return g;
+        },
+        borderColor: '#4361ee', borderWidth: 0,
+        borderRadius: 8, borderSkipped: false,
+        hoverBackgroundColor: '#4361ee'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 30 } },
+      onClick: (e, els) => { if (els.length) goFilter('month', monthlyData[els[0].index].month); },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          anchor:'end', align:'top', color:'#64748b',
+          font:{ weight:'700', size:12, family:'Inter' }, formatter: v => v
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true, ticks:{ precision:0, color:'#94a3b8', font:{family:'Inter'} },
+          grid:{ color:'#f1f5f9' }, border:{ dash:[4,4] }
+        },
+        x: {
+          ticks:{ color:'#94a3b8', font:{family:'Inter'} },
+          grid:{ display:false }
+        }
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+
+// ── toast ─────────────────────────────────────────────────────────
+let _toastTimer;
+function toast(msg, type = 'success') {
+  const el  = document.getElementById('toast');
+  const ico = document.getElementById('toast-icon');
+  el.className = 'toast ' + type;
+  ico.className = type === 'success' ? 'fa fa-check' : 'fa fa-xmark';
+  document.getElementById('toast-msg').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3400);
+}
+
+// ── init ──────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
