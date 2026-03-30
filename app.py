@@ -13,40 +13,60 @@ DB_PATH       = '/tmp/logisticpro.db' if IS_VERCEL else os.path.join(os.path.dir
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 USE_PG = bool(DATABASE_URL)
-if USE_PG:
-    import psycopg2
-    import psycopg2.extras
+
+_db_initialised = False   # lazy-init flag
 
 
-# ── DB helpers ────────────────────────────────────────────────────────────────
+# ── DB connection ─────────────────────────────────────────────────────────────
+
+def get_pg():
+    """Open a new PostgreSQL connection using pg8000 (pure Python)."""
+    import pg8000.native
+    from urllib.parse import urlparse
+    u = urlparse(DATABASE_URL)
+    return pg8000.native.Connection(
+        host=u.hostname,
+        port=u.port or 5432,
+        database=u.path.lstrip('/'),
+        user=u.username,
+        password=u.password,
+        ssl_context=True,
+    )
+
 
 def get_db():
     if USE_PG:
-        return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        return get_pg()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def init_db():
+# ── lazy DB init ──────────────────────────────────────────────────────────────
+
+def ensure_db():
+    global _db_initialised
+    if _db_initialised:
+        return
     if USE_PG:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS shipments (
-                        id           SERIAL PRIMARY KEY,
-                        date         TEXT,
-                        awb_no       TEXT UNIQUE,
-                        cost         REAL,
-                        status       TEXT,
-                        awb_file     TEXT,
-                        invoice_file TEXT,
-                        created_at   TIMESTAMP DEFAULT NOW()
-                    )
-                ''')
-            conn.commit()
+        conn = get_pg()
+        try:
+            conn.run('''
+                CREATE TABLE IF NOT EXISTS shipments (
+                    id           SERIAL PRIMARY KEY,
+                    date         TEXT,
+                    awb_no       TEXT UNIQUE,
+                    cost         REAL,
+                    status       TEXT,
+                    awb_file     TEXT,
+                    invoice_file TEXT,
+                    created_at   TIMESTAMP DEFAULT NOW()
+                )
+            ''')
+        finally:
+            conn.close()
     else:
-        with get_db() as conn:
+        with sqlite3.connect(DB_PATH) as conn:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS shipments (
                     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,10 +85,15 @@ def init_db():
                 )
             except Exception:
                 pass
+    _db_initialised = True
 
 
-init_db()
+@app.before_request
+def before_request():
+    ensure_db()
 
+
+# ── helpers ───────────────────────────────────────────────────────────────────
 
 def save_file(key):
     f = request.files.get(key)
@@ -79,10 +104,17 @@ def save_file(key):
     return None
 
 
-def rows_to_list(rows):
-    if USE_PG:
-        return [dict(r) for r in rows]
-    return [dict(r) for r in rows]
+def pg_rows(conn, sql, params=()):
+    """Run a SELECT on pg8000 and return list of dicts."""
+    import pg8000.native
+    rows = conn.run(sql, *params)
+    cols = [c['name'] for c in conn.columns]
+    return [dict(zip(cols, row)) for row in rows]
+
+
+def pg_one(conn, sql, params=()):
+    rows = pg_rows(conn, sql, params)
+    return rows[0] if rows else None
 
 
 # ── routes ────────────────────────────────────────────────────────────────────
@@ -104,16 +136,19 @@ def manifest():
 
 @app.route('/api/shipments', methods=['GET'])
 def get_shipments():
-    with get_db() as conn:
-        if USE_PG:
-            with conn.cursor() as cur:
-                cur.execute('SELECT * FROM shipments ORDER BY created_at DESC')
-                rows = cur.fetchall()
-        else:
-            rows = conn.execute(
+    if USE_PG:
+        conn = get_pg()
+        try:
+            rows = pg_rows(conn, 'SELECT * FROM shipments ORDER BY created_at DESC')
+        finally:
+            conn.close()
+    else:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = [dict(r) for r in conn.execute(
                 'SELECT * FROM shipments ORDER BY created_at DESC'
-            ).fetchall()
-    return jsonify(rows_to_list(rows))
+            ).fetchall()]
+    return jsonify(rows)
 
 
 @app.route('/api/shipments', methods=['POST'])
@@ -123,29 +158,30 @@ def add_shipment():
     d      = request.form
     awb_no = d.get('awb_no', '').strip()
 
-    with get_db() as conn:
-        if USE_PG:
-            with conn.cursor() as cur:
-                cur.execute('SELECT id FROM shipments WHERE awb_no=%s', (awb_no,))
-                if cur.fetchone():
-                    return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
-                cur.execute(
-                    '''INSERT INTO shipments (date,awb_no,cost,status,awb_file,invoice_file)
-                       VALUES (%s,%s,%s,%s,%s,%s) RETURNING *''',
-                    (d.get('date'), awb_no, d.get('cost') or None,
-                     d.get('status'), awb_file, invoice_file)
-                )
-                row = dict(cur.fetchone())
-            conn.commit()
-        else:
-            dup = conn.execute(
-                'SELECT id FROM shipments WHERE awb_no=?', (awb_no,)
-            ).fetchone()
+    if USE_PG:
+        conn = get_pg()
+        try:
+            dup = pg_one(conn, 'SELECT id FROM shipments WHERE awb_no = :1', (awb_no,))
             if dup:
                 return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
+            conn.run(
+                'INSERT INTO shipments (date,awb_no,cost,status,awb_file,invoice_file) '
+                'VALUES (:1,:2,:3,:4,:5,:6)',
+                d.get('date'), awb_no, d.get('cost') or None,
+                d.get('status'), awb_file, invoice_file
+            )
+            row = pg_one(conn,
+                'SELECT * FROM shipments WHERE awb_no = :1', (awb_no,))
+        finally:
+            conn.close()
+    else:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            if conn.execute('SELECT id FROM shipments WHERE awb_no=?', (awb_no,)).fetchone():
+                return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
             cur = conn.execute(
-                '''INSERT INTO shipments (date,awb_no,cost,status,awb_file,invoice_file)
-                   VALUES (?,?,?,?,?,?)''',
+                'INSERT INTO shipments (date,awb_no,cost,status,awb_file,invoice_file) '
+                'VALUES (?,?,?,?,?,?)',
                 (d.get('date'), awb_no, d.get('cost') or None,
                  d.get('status'), awb_file, invoice_file)
             )
@@ -163,43 +199,37 @@ def update_shipment(sid):
     d      = request.form
     awb_no = d.get('awb_no', '').strip()
 
-    with get_db() as conn:
-        if USE_PG:
-            with conn.cursor() as cur:
-                cur.execute('SELECT id FROM shipments WHERE id=%s', (sid,))
-                if not cur.fetchone():
-                    return jsonify({'success': False, 'error': 'Not found'}), 404
-                cur.execute(
-                    'SELECT id FROM shipments WHERE awb_no=%s AND id!=%s', (awb_no, sid)
-                )
-                if cur.fetchone():
-                    return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
-                cur.execute(
-                    '''UPDATE shipments
-                       SET date=%s, awb_no=%s, cost=%s, status=%s,
-                           awb_file=COALESCE(%s,awb_file),
-                           invoice_file=COALESCE(%s,invoice_file)
-                       WHERE id=%s RETURNING *''',
-                    (d.get('date'), awb_no, d.get('cost') or None,
-                     d.get('status'), awb_file, invoice_file, sid)
-                )
-                row = dict(cur.fetchone())
-            conn.commit()
-        else:
-            if not conn.execute(
-                'SELECT id FROM shipments WHERE id=?', (sid,)
-            ).fetchone():
+    if USE_PG:
+        conn = get_pg()
+        try:
+            if not pg_one(conn, 'SELECT id FROM shipments WHERE id = :1', (sid,)):
+                return jsonify({'success': False, 'error': 'Not found'}), 404
+            if pg_one(conn,
+                'SELECT id FROM shipments WHERE awb_no = :1 AND id != :2', (awb_no, sid)):
+                return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
+            conn.run(
+                'UPDATE shipments SET date=:1,awb_no=:2,cost=:3,status=:4,'
+                'awb_file=COALESCE(:5,awb_file),invoice_file=COALESCE(:6,invoice_file) '
+                'WHERE id=:7',
+                d.get('date'), awb_no, d.get('cost') or None,
+                d.get('status'), awb_file, invoice_file, sid
+            )
+            row = pg_one(conn, 'SELECT * FROM shipments WHERE id = :1', (sid,))
+        finally:
+            conn.close()
+    else:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            if not conn.execute('SELECT id FROM shipments WHERE id=?', (sid,)).fetchone():
                 return jsonify({'success': False, 'error': 'Not found'}), 404
             if conn.execute(
                 'SELECT id FROM shipments WHERE awb_no=? AND id!=?', (awb_no, sid)
             ).fetchone():
                 return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
             conn.execute(
-                '''UPDATE shipments
-                   SET date=?, awb_no=?, cost=?, status=?,
-                       awb_file=COALESCE(?,awb_file),
-                       invoice_file=COALESCE(?,invoice_file)
-                   WHERE id=?''',
+                'UPDATE shipments SET date=?,awb_no=?,cost=?,status=?,'
+                'awb_file=COALESCE(?,awb_file),invoice_file=COALESCE(?,invoice_file) '
+                'WHERE id=?',
                 (d.get('date'), awb_no, d.get('cost') or None,
                  d.get('status'), awb_file, invoice_file, sid)
             )
@@ -212,46 +242,41 @@ def update_shipment(sid):
 
 @app.route('/api/shipments/<int:sid>', methods=['DELETE'])
 def delete_shipment(sid):
-    with get_db() as conn:
-        if USE_PG:
-            with conn.cursor() as cur:
-                cur.execute('DELETE FROM shipments WHERE id=%s', (sid,))
-            conn.commit()
-        else:
+    if USE_PG:
+        conn = get_pg()
+        try:
+            conn.run('DELETE FROM shipments WHERE id = :1', sid)
+        finally:
+            conn.close()
+    else:
+        with sqlite3.connect(DB_PATH) as conn:
             conn.execute('DELETE FROM shipments WHERE id=?', (sid,))
     return jsonify({'success': True})
 
 
 @app.route('/api/dashboard')
 def dashboard():
-    with get_db() as conn:
-        if USE_PG:
-            with conn.cursor() as cur:
-                cur.execute('SELECT COUNT(*) AS n FROM shipments')
-                total = cur.fetchone()['n']
-                cur.execute("SELECT COUNT(*) AS n FROM shipments WHERE status='Transit'")
-                transit = cur.fetchone()['n']
-                cur.execute("SELECT COUNT(*) AS n FROM shipments WHERE status='Delivered'")
-                delivered = cur.fetchone()['n']
-                cur.execute("SELECT COUNT(*) AS n FROM shipments WHERE status='Returned'")
-                returned = cur.fetchone()['n']
-                cur.execute(
-                    "SELECT TO_CHAR(date::date,'YYYY-MM') AS month, COUNT(*) AS count "
-                    "FROM shipments WHERE date IS NOT NULL AND date!='' "
-                    "GROUP BY month ORDER BY month"
-                )
-                monthly = [dict(r) for r in cur.fetchall()]
-        else:
+    if USE_PG:
+        conn = get_pg()
+        try:
+            total     = pg_one(conn, 'SELECT COUNT(*) AS n FROM shipments')['n']
+            transit   = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Transit'")['n']
+            delivered = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Delivered'")['n']
+            returned  = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Returned'")['n']
+            monthly   = pg_rows(conn,
+                "SELECT TO_CHAR(date::date,'YYYY-MM') AS month, COUNT(*) AS count "
+                "FROM shipments WHERE date IS NOT NULL AND date!='' "
+                "GROUP BY month ORDER BY month"
+            )
+        finally:
+            conn.close()
+    else:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
             total     = conn.execute('SELECT COUNT(*) FROM shipments').fetchone()[0]
-            transit   = conn.execute(
-                "SELECT COUNT(*) FROM shipments WHERE status='Transit'"
-            ).fetchone()[0]
-            delivered = conn.execute(
-                "SELECT COUNT(*) FROM shipments WHERE status='Delivered'"
-            ).fetchone()[0]
-            returned  = conn.execute(
-                "SELECT COUNT(*) FROM shipments WHERE status='Returned'"
-            ).fetchone()[0]
+            transit   = conn.execute("SELECT COUNT(*) FROM shipments WHERE status='Transit'").fetchone()[0]
+            delivered = conn.execute("SELECT COUNT(*) FROM shipments WHERE status='Delivered'").fetchone()[0]
+            returned  = conn.execute("SELECT COUNT(*) FROM shipments WHERE status='Returned'").fetchone()[0]
             monthly   = [dict(r) for r in conn.execute(
                 "SELECT strftime('%Y-%m',date) AS month, COUNT(*) AS count "
                 "FROM shipments WHERE date IS NOT NULL "
@@ -271,5 +296,6 @@ def uploads(filename):
 
 
 if __name__ == '__main__':
+    ensure_db()
     print('Logistic Pro running at http://localhost:5002')
     app.run(debug=True, port=5002)
