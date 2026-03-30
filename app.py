@@ -51,7 +51,7 @@ def ensure_db():
     if USE_PG:
         conn = get_pg()
         try:
-            conn.run('''
+            pg_run(conn, '''
                 CREATE TABLE IF NOT EXISTS shipments (
                     id           SERIAL PRIMARY KEY,
                     date         TEXT,
@@ -105,11 +105,24 @@ def save_file(key):
 
 
 def pg_rows(conn, sql, params=()):
-    """Run a SELECT on pg8000 and return list of dicts."""
-    import pg8000.native
-    rows = conn.run(sql, *params)
+    """Run a SELECT on pg8000 and return list of dicts.
+    pg8000 uses $1,$2,... placeholders passed as keyword args p1, p2, ...
+    """
+    kwargs = {'p{}'.format(i+1): v for i, v in enumerate(params)}
+    # replace :1/:2 style or $1/$2 style → p1,p2 style
+    import re
+    sql = re.sub(r'\$(\d+)', lambda m: ':p'+m.group(1), sql)
+    rows = conn.run(sql, **kwargs)
     cols = [c['name'] for c in conn.columns]
     return [dict(zip(cols, row)) for row in rows]
+
+
+def pg_run(conn, sql, params=()):
+    """Run a non-SELECT statement on pg8000."""
+    kwargs = {'p{}'.format(i+1): v for i, v in enumerate(params)}
+    import re
+    sql = re.sub(r'\$(\d+)', lambda m: ':p'+m.group(1), sql)
+    conn.run(sql, **kwargs)
 
 
 def pg_one(conn, sql, params=()):
@@ -161,17 +174,15 @@ def add_shipment():
     if USE_PG:
         conn = get_pg()
         try:
-            dup = pg_one(conn, 'SELECT id FROM shipments WHERE awb_no = :1', (awb_no,))
+            dup = pg_one(conn, 'SELECT id FROM shipments WHERE awb_no = $1', (awb_no,))
             if dup:
                 return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
-            conn.run(
+            pg_run(conn,
                 'INSERT INTO shipments (date,awb_no,cost,status,awb_file,invoice_file) '
-                'VALUES (:1,:2,:3,:4,:5,:6)',
-                d.get('date'), awb_no, d.get('cost') or None,
-                d.get('status'), awb_file, invoice_file
-            )
-            row = pg_one(conn,
-                'SELECT * FROM shipments WHERE awb_no = :1', (awb_no,))
+                'VALUES ($1,$2,$3,$4,$5,$6)',
+                (d.get('date'), awb_no, d.get('cost') or None,
+                 d.get('status'), awb_file, invoice_file))
+            row = pg_one(conn, 'SELECT * FROM shipments WHERE awb_no = $1', (awb_no,))
         finally:
             conn.close()
     else:
@@ -202,19 +213,18 @@ def update_shipment(sid):
     if USE_PG:
         conn = get_pg()
         try:
-            if not pg_one(conn, 'SELECT id FROM shipments WHERE id = :1', (sid,)):
+            if not pg_one(conn, 'SELECT id FROM shipments WHERE id = $1', (sid,)):
                 return jsonify({'success': False, 'error': 'Not found'}), 404
             if pg_one(conn,
-                'SELECT id FROM shipments WHERE awb_no = :1 AND id != :2', (awb_no, sid)):
+                'SELECT id FROM shipments WHERE awb_no = $1 AND id != $2', (awb_no, sid)):
                 return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
-            conn.run(
-                'UPDATE shipments SET date=:1,awb_no=:2,cost=:3,status=:4,'
-                'awb_file=COALESCE(:5,awb_file),invoice_file=COALESCE(:6,invoice_file) '
-                'WHERE id=:7',
-                d.get('date'), awb_no, d.get('cost') or None,
-                d.get('status'), awb_file, invoice_file, sid
-            )
-            row = pg_one(conn, 'SELECT * FROM shipments WHERE id = :1', (sid,))
+            pg_run(conn,
+                'UPDATE shipments SET date=$1,awb_no=$2,cost=$3,status=$4,'
+                'awb_file=COALESCE($5,awb_file),invoice_file=COALESCE($6,invoice_file) '
+                'WHERE id=$7',
+                (d.get('date'), awb_no, d.get('cost') or None,
+                 d.get('status'), awb_file, invoice_file, sid))
+            row = pg_one(conn, 'SELECT * FROM shipments WHERE id = $1', (sid,))
         finally:
             conn.close()
     else:
@@ -245,7 +255,7 @@ def delete_shipment(sid):
     if USE_PG:
         conn = get_pg()
         try:
-            conn.run('DELETE FROM shipments WHERE id = :1', sid)
+            pg_run(conn, 'DELETE FROM shipments WHERE id = $1', (sid,))
         finally:
             conn.close()
     else:
@@ -264,8 +274,8 @@ def dashboard():
             delivered = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Delivered'")['n']
             returned  = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Returned'")['n']
             monthly   = pg_rows(conn,
-                "SELECT TO_CHAR(date::date,'YYYY-MM') AS month, COUNT(*) AS count "
-                "FROM shipments WHERE date IS NOT NULL AND date!='' "
+                "SELECT LEFT(date,7) AS month, COUNT(*) AS count "
+                "FROM shipments WHERE date IS NOT NULL AND date != '' "
                 "GROUP BY month ORDER BY month"
             )
         finally:
