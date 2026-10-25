@@ -239,6 +239,63 @@ body{
 }
 .form-overlay.open{display:block;opacity:1}
 
+/* ── tracking panel ──────────────────────────────────────── */
+.track-card .track-body{flex:1;overflow-y:auto;padding:0}
+.trk-summary{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border)}
+.trk-summary .badge{font-size:12px}
+.trk-meta{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.trk-meta b{color:var(--text);font-weight:600}
+.trk-list{list-style:none;margin:0;padding:0}
+.trk-ev{
+  position:relative;display:grid;grid-template-columns:96px 34px minmax(0,1fr);
+  align-items:start;padding:18px 20px 18px 16px;min-height:84px;
+}
+.trk-ev:nth-child(even){background:#f3f8f8}
+.trk-when{text-align:right;line-height:1.35}
+.trk-when b{display:block;font-size:13px;font-weight:700;color:var(--text)}
+.trk-when span{font-size:13px;color:var(--muted)}
+.trk-rail{position:relative;align-self:stretch;display:flex;justify-content:center}
+.trk-rail::before{
+  content:'';position:absolute;top:-18px;bottom:-18px;left:50%;width:1px;
+  background:#dfe3ea;transform:translateX(-50%);
+}
+.trk-ev:first-child .trk-rail::before{top:12px}
+.trk-ev:last-child .trk-rail::before{bottom:auto;height:30px}
+.trk-dot{
+  position:relative;z-index:1;width:22px;height:22px;border-radius:50%;
+  background:#fff;border:1px solid #dfe3ea;display:grid;place-items:center;
+}
+.trk-dot::after{content:'';width:8px;height:8px;border-radius:50%;background:#d6d9df}
+.trk-ev:first-child .trk-dot{border-color:var(--primary)}
+.trk-ev:first-child .trk-dot::after{background:var(--primary)}
+.trk-what{padding-left:10px;padding-right:56px;line-height:1.35}
+.trk-what .st{font-size:15px;color:var(--text)}
+.trk-ev:first-child .trk-what .st{font-weight:600}
+.trk-what .loc{font-size:13px;color:var(--muted);margin-top:2px}
+.trk-tag{
+  position:absolute;top:0;right:0;font-size:9px;font-weight:700;letter-spacing:.3px;
+  color:#3b3355;background:#eef0f4;padding:3px 7px;border-radius:0 0 0 6px;text-transform:uppercase;
+  max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.trk-state{padding:48px 28px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5}
+.trk-state i{font-size:28px;display:block;margin-bottom:12px;color:#c4cad6}
+.trk-state b{display:block;color:var(--text);font-size:15px;margin-bottom:4px}
+.trk-spin{
+  width:28px;height:28px;border:3px solid var(--primary-light);border-top-color:var(--primary);
+  border-radius:50%;margin:0 auto 14px;animation:trkspin .8s linear infinite;
+}
+@keyframes trkspin{to{transform:rotate(360deg)}}
+.trk-foot{flex-shrink:0;padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end}
+.trk-link{font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.trk-link:hover{text-decoration:underline}
+@media(max-width:480px){
+  .trk-ev{grid-template-columns:78px 28px minmax(0,1fr);padding:16px 12px 16px 8px}
+  .trk-when b,.trk-when span{font-size:12px}
+  .trk-what .st{font-size:14px}
+  .trk-what{padding-right:44px}
+}
+@media(prefers-reduced-motion:reduce){.trk-spin{animation-duration:2s}}
+
 /* ── form card ───────────────────────────────────────────── */
 .form-card{
   background:var(--card);border-radius:var(--radius);
@@ -706,7 +763,7 @@ tbody tr.selected td:first-child{
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- form overlay (mobile bottom sheet backdrop) -->
-<div id="form-overlay" class="form-overlay" onclick="closeForm()"></div>
+<div id="form-overlay" class="form-overlay" onclick="closePanels()"></div>
 
 <!-- mobile topbar -->
 <div class="topbar">
@@ -934,6 +991,23 @@ tbody tr.selected td:first-child{
       </div>
     </div>
 
+    <!-- Tracking panel -->
+    <div class="form-card track-card" id="track-card" role="dialog" aria-labelledby="trk-title">
+      <div class="form-card-header">
+        <div>
+          <h3 id="trk-title">Track Shipment</h3>
+          <p id="trk-subtitle">AWB: —</p>
+        </div>
+        <button class="form-close-btn" onclick="closeTrack()" aria-label="Close tracking"><i class="fa fa-xmark"></i></button>
+      </div>
+      <div class="track-body" id="trk-body"></div>
+      <div class="trk-foot">
+        <a class="trk-link" id="trk-ext" href="#" target="_blank" rel="noopener">
+          <i class="fa fa-arrow-up-right-from-square"></i> Open on Parcels
+        </a>
+      </div>
+    </div>
+
     <!-- Table -->
     <div class="table-card">
       <div class="table-hdr">
@@ -1121,7 +1195,9 @@ function openNewForm() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('form-card').classList.contains('open')) closeForm();
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('track-card').classList.contains('open')) closeTrack();
+  else if (document.getElementById('form-card').classList.contains('open')) closeForm();
 });
 
 function closeForm() {
@@ -1353,7 +1429,95 @@ function selectRow(id) {
 function trackShipment(e, awb) {
   e.stopPropagation();
   if (!awb) { toast('No AWB number for this shipment.', 'error'); return; }
-  window.open('https://parcelsapp.com/en/tracking/' + encodeURIComponent(awb), '_blank');
+  openTrack(awb);
+}
+
+// ── tracking panel ────────────────────────────────────────────────
+let trackToken = 0;
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function closePanels() {
+  if (document.getElementById('track-card').classList.contains('open')) closeTrack();
+  if (document.getElementById('form-card').classList.contains('open')) closeForm();
+}
+
+function closeTrack() {
+  trackToken++;                       // stop any polling in progress
+  document.getElementById('track-card').classList.remove('open');
+  if (!document.getElementById('form-card').classList.contains('open'))
+    document.getElementById('form-overlay').classList.remove('open');
+}
+
+function trkState(icon, title, text, spinner) {
+  document.getElementById('trk-body').innerHTML =
+    `<div class="trk-state">${spinner ? '<div class="trk-spin"></div>' : `<i class="fa ${icon}"></i>`}
+       <b>${esc(title)}</b>${esc(text)}</div>`;
+}
+
+async function openTrack(awb) {
+  const token = ++trackToken;
+  document.getElementById('trk-subtitle').textContent = 'AWB: ' + awb;
+  document.getElementById('trk-ext').href = 'https://parcelsapp.com/en/tracking/' + encodeURIComponent(awb);
+  document.getElementById('track-card').classList.add('open');
+  document.getElementById('form-overlay').classList.add('open');
+  trkState('', 'Fetching tracking details…', 'This can take up to a minute for new shipments.', true);
+
+  let uuid = '', last = null;
+  const started = Date.now();
+  try {
+    while (token === trackToken) {
+      const q = 'awb=' + encodeURIComponent(awb) + (uuid ? '&uuid=' + encodeURIComponent(uuid) : '');
+      const res = await fetch('/api/track?' + q);
+      const d = await res.json();
+      if (token !== trackToken) return;
+      if (d.error) {
+        if (d.error === 'NOT_CONFIGURED')
+          trkState('fa-plug-circle-xmark', 'Tracking isn’t connected yet', 'Use “Open on Parcels” below to see this shipment.');
+        else
+          trkState('fa-triangle-exclamation', 'Couldn’t load tracking', d.message || 'Try again in a moment, or open it on Parcels.');
+        return;
+      }
+      if (d.shipment && d.shipment.events && d.shipment.events.length) { last = d.shipment; renderTrack(last, !d.done); }
+      uuid = d.uuid || uuid;
+      if (d.done || !uuid) break;
+      if (Date.now() - started > 60000) break;
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  } catch {
+    if (token === trackToken && !last)
+      trkState('fa-wifi', 'Couldn’t reach the server', 'Check your connection and try again.');
+    return;
+  }
+  if (token !== trackToken) return;
+  if (last) renderTrack(last, false);
+  else trkState('fa-box-open', 'No tracking updates yet', 'The carrier hasn’t reported any events for this AWB number.');
+}
+
+function renderTrack(sh, stillLoading) {
+  const fmtDay  = d => d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+  const fmtTime = d => d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', hour12:false});
+  const status = (sh.status || '').toLowerCase();
+  const badge = status === 'delivered' ? 'delivered' : (status === 'transit' || status === 'pickup' ? 'transit' : (status === 'archive' || status === 'returned' ? 'returned' : ''));
+  const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : '';
+  const route = [sh.origin, sh.destination].filter(Boolean).join(' → ');
+  const summary = `<div class="trk-summary">
+      ${label ? `<span class="badge badge-${badge}">${esc(label)}</span>` : ''}
+      ${sh.carrier ? `<span class="trk-meta"><i class="fa fa-truck-fast"></i><b>${esc(sh.carrier)}</b></span>` : ''}
+      ${route ? `<span class="trk-meta"><i class="fa fa-route"></i>${esc(route)}</span>` : ''}
+      ${stillLoading ? '<span class="trk-meta"><i class="fa fa-rotate fa-spin"></i>Updating…</span>' : ''}
+    </div>`;
+  const rows = sh.events.map(ev => {
+    const d = ev.date ? new Date(ev.date) : null;
+    const ok = d && !isNaN(d);
+    return `<li class="trk-ev">
+      ${ev.carrier ? `<span class="trk-tag">${esc(ev.carrier)}</span>` : ''}
+      <div class="trk-when">${ok ? `<b>${fmtDay(d)}</b><span>${fmtTime(d)}</span>` : '<b>—</b>'}</div>
+      <div class="trk-rail"><span class="trk-dot"></span></div>
+      <div class="trk-what"><div class="st">${esc(ev.state)}</div>${ev.location ? `<div class="loc">${esc(ev.location)}</div>` : ''}</div>
+    </li>`;
+  }).join('');
+  document.getElementById('trk-body').innerHTML = summary + `<ul class="trk-list">${rows}</ul>`;
 }
 
 // ── animated counter ──────────────────────────────────────────────
