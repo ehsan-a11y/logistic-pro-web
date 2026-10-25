@@ -41,6 +41,7 @@
   --delivered-from:#10b981; --delivered-to:#059669;
   --returned-from:#ef4444; --returned-to:#dc2626;
   --total-from:#4361ee;    --total-to:#6366f1;
+  --cost-from:#8b5cf6;     --cost-to:#7c3aed;
 }
 
 /* ── reset ───────────────────────────────────────────────── */
@@ -175,7 +176,7 @@ body{
 .page-header-left p{font-size:13px;color:var(--muted);margin-top:2px}
 
 /* ── stat cards ──────────────────────────────────────────── */
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:20px}
 .stat-card{
   border-radius:var(--radius);padding:22px 20px;
   display:flex;align-items:center;gap:16px;
@@ -191,6 +192,7 @@ body{
 }
 .stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
 .stat-card.c-total    {background:linear-gradient(135deg,var(--total-from),var(--total-to))}
+.stat-card.c-cost     {background:linear-gradient(135deg,var(--cost-from),var(--cost-to))}
 .stat-card.c-transit  {background:linear-gradient(135deg,var(--transit-from),var(--transit-to))}
 .stat-card.c-delivered{background:linear-gradient(135deg,var(--delivered-from),var(--delivered-to))}
 .stat-card.c-returned {background:linear-gradient(135deg,var(--returned-from),var(--returned-to))}
@@ -521,9 +523,9 @@ tbody tr.selected td:first-child{
 
 /* ── responsive ──────────────────────────────────────────── */
 
-/* Desktop: 4-col cards */
+/* Desktop: 5-col cards */
 @media(min-width:1100px){
-  .stats-grid{grid-template-columns:repeat(4,1fr)}
+  .stats-grid{grid-template-columns:repeat(5,1fr)}
 }
 /* Tablet: 2-col cards */
 @media(min-width:601px) and (max-width:1099px){
@@ -698,6 +700,14 @@ tbody tr.selected td:first-child{
         <div class="stat-info">
           <div class="stat-val" id="st-total">0</div>
           <div class="stat-lbl">Total Shipments</div>
+        </div>
+        <i class="fa fa-arrow-up-right stat-arrow"></i>
+      </div>
+      <div class="stat-card c-cost" onclick="goFilter('','')">
+        <div class="stat-icon-wrap"><i class="fa fa-coins"></i></div>
+        <div class="stat-info">
+          <div class="stat-val" id="st-cost">0</div>
+          <div class="stat-lbl">Total Cost</div>
         </div>
         <i class="fa fa-arrow-up-right stat-arrow"></i>
       </div>
@@ -1223,15 +1233,16 @@ function trackShipment(e, awb) {
 }
 
 // ── animated counter ──────────────────────────────────────────────
-function animateCount(id, target) {
+function animateCount(id, target, fmt) {
   const el = document.getElementById(id);
-  const start = parseInt(el.textContent) || 0;
-  if (start === target) return;
+  const show = fmt || (v => Math.round(v));
+  const start = parseFloat(el.textContent.replace(/,/g, '')) || 0;
+  if (start === target) { el.textContent = show(target); return; }
   const dur = 600, steps = 20, inc = (target - start) / steps;
   let cur = start, n = 0;
   const t = setInterval(() => {
     n++; cur += inc;
-    el.textContent = Math.round(n >= steps ? target : cur);
+    el.textContent = show(n >= steps ? target : cur);
     if (n >= steps) clearInterval(t);
   }, dur / steps);
 }
@@ -1250,10 +1261,13 @@ async function updateDashboard() {
       transit:   allRows.filter(r=>r.status==='Transit').length,
       delivered: allRows.filter(r=>r.status==='Delivered').length,
       returned:  allRows.filter(r=>r.status==='Returned').length,
+      total_cost: allRows.reduce((a,r)=>a+(parseFloat(r.cost)||0),0),
       monthly: Object.keys(monthly).sort().map(m=>({month:m,count:monthly[m]}))
     };
   }
   animateCount('st-total',     d.total);
+  animateCount('st-cost',      Number(d.total_cost) || 0,
+               v => Math.round(v).toLocaleString('en-US'));
   animateCount('st-transit',   d.transit);
   animateCount('st-delivered', d.delivered);
   animateCount('st-returned',  d.returned);
