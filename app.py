@@ -303,6 +303,97 @@ def dashboard():
     })
 
 
+# ── shipment tracking (Parcels API) ───────────────────────────────────────────
+PARCELS_API_KEY = os.environ.get('PARCELS_API_KEY', '').strip()
+PARCELS_API_URL = 'https://parcelsapp.com/api/v3/shipments/tracking'
+
+
+def _parcels_call(method, params=None, body=None):
+    """Call the Parcels API and return parsed JSON (or an error dict)."""
+    import json
+    import urllib.parse
+    import urllib.request
+    url = PARCELS_API_URL
+    data = None
+    headers = {'Accept': 'application/json'}
+    if params:
+        url += '?' + urllib.parse.urlencode(params)
+    if body is not None:
+        data = json.dumps(body).encode('utf-8')
+        headers['Content-Type'] = 'application/json'
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except Exception as exc:  # network error, timeout, bad JSON
+        return {'error': 'NETWORK', 'description': str(exc)}
+
+
+def _shape_tracking(result, awb):
+    """Reduce a Parcels result to what the tracking panel needs."""
+    shipments = result.get('shipments') or []
+    match = next((s for s in shipments
+                  if str(s.get('trackingId', '')).upper() == awb.upper()),
+                 shipments[0] if shipments else None)
+    if not match:
+        return None
+    services = match.get('services') or []
+    carrier = (match.get('detectedCarrier') or {}).get('name') or \
+              (services[0].get('name') if services else '')
+    events = []
+    for st in match.get('states') or []:
+        idx = st.get('carrier')
+        ev_carrier = ''
+        if isinstance(idx, int) and 0 <= idx < len(services):
+            ev_carrier = services[idx].get('name', '')
+        events.append({
+            'date': st.get('date'),
+            'state': st.get('state', ''),
+            'location': st.get('location', ''),
+            'carrier': ev_carrier or carrier,
+        })
+    return {
+        'trackingId': match.get('trackingId', awb),
+        'status': match.get('status', ''),
+        'origin': match.get('origin', ''),
+        'destination': match.get('destination', ''),
+        'carrier': carrier,
+        'events': events,
+    }
+
+
+@app.route('/api/track')
+def track():
+    """Start (awb=...) or continue (uuid=...) a tracking lookup.
+
+    Returns {done, uuid, shipment} or {error, message}.
+    """
+    awb = (request.args.get('awb') or '').strip()
+    uuid = (request.args.get('uuid') or '').strip()
+    if not awb:
+        return jsonify({'error': 'MISSING_AWB', 'message': 'No AWB number given.'}), 400
+    if not PARCELS_API_KEY:
+        return jsonify({'error': 'NOT_CONFIGURED',
+                        'message': 'Tracking is not set up yet. Add PARCELS_API_KEY in Vercel.'})
+
+    if uuid:
+        result = _parcels_call('GET', params={'uuid': uuid, 'apiKey': PARCELS_API_KEY})
+    else:
+        result = _parcels_call('POST', body={
+            'apiKey': PARCELS_API_KEY,
+            'language': 'en',
+            'shipments': [{'trackingId': awb}],
+        })
+
+    if result.get('error'):
+        return jsonify({'error': result['error'],
+                        'message': result.get('description') or result['error']})
+
+    shipment = _shape_tracking(result, awb)
+    done = bool(result.get('done'))
+    return jsonify({'done': done, 'uuid': result.get('uuid') or uuid, 'shipment': shipment})
+
+
 @app.route('/uploads/<filename>')
 def uploads(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
