@@ -504,6 +504,33 @@ thead th .th-icon i{font-size:11px;opacity:.6}
   display:inline-flex;align-items:center;gap:7px;cursor:pointer;
   transition:border-color .15s,color .15s,background .15s;touch-action:manipulation;
 }
+.mail-overlay{
+  display:none;position:fixed;inset:0;z-index:400;background:rgba(15,23,42,.45);
+  backdrop-filter:blur(2px);align-items:center;justify-content:center;padding:16px;
+}
+.mail-overlay.open{display:flex}
+.mail-card{
+  width:100%;max-width:420px;background:var(--card);border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);padding:22px 24px;animation:slideDown .2s ease;
+}
+.mail-card h3{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.mail-card h3 i{color:var(--primary)}
+.mail-sub{font-size:13px;color:var(--muted);margin:4px 0 16px}
+.mail-card label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.mail-card input{
+  width:100%;height:44px;padding:0 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font:inherit;font-size:14px;color:var(--text);background:#fafbff;outline:none;
+}
+.mail-card input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
+.mail-card small{display:block;font-size:12px;color:var(--muted);margin-top:6px}
+.mail-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.mail-send{
+  height:40px;padding:0 18px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;
+  font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+}
+.mail-send:hover{background:var(--primary-dark)}
+.mail-send:disabled{opacity:.6;cursor:wait}
+.mail-send:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
 .tbl-reset i{font-size:12px;color:var(--muted);transition:color .15s}
 .tbl-reset:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .tbl-reset:hover i{color:var(--primary)}
@@ -512,7 +539,7 @@ thead th .th-icon i{font-size:11px;opacity:.6}
   .tbl-tools{padding:10px 14px}
   .tbl-search{max-width:none;flex-basis:100%}
   .tbl-status{flex:1 1 100%;width:100%}
-  .tbl-reset{flex:1 1 0;height:44px;justify-content:center}
+  .tbl-reset{flex:1 1 0;height:44px;justify-content:center;padding:0 8px;white-space:nowrap}
   .tbl-status{height:44px}
   .tbl-search input,.tbl-status{font-size:16px}
 }
@@ -971,6 +998,9 @@ tbody tr.selected td:first-child{
         <button type="button" class="tbl-reset tbl-export" onclick="exportShipments()" title="Download the records shown below as a CSV file">
           <i class="fa fa-file-arrow-down"></i> Export Data
         </button>
+        <button type="button" class="tbl-reset tbl-email" onclick="openEmailDialog()" title="Email the records shown below as a CSV file">
+          <i class="fa fa-envelope"></i> Email Data
+        </button>
       </div>
       <div class="tbl-wrap">
         <table>
@@ -993,6 +1023,23 @@ tbody tr.selected td:first-child{
 </main>
 
 <!-- toast -->
+<div class="mail-overlay" id="mail-overlay" onclick="if(event.target===this)closeEmailDialog()">
+  <div class="mail-card" role="dialog" aria-modal="true" aria-labelledby="mail-title">
+    <h3 id="mail-title"><i class="fa fa-envelope"></i> Email shipment data</h3>
+    <p class="mail-sub" id="mail-sub">The records shown in the table will be sent as a CSV file.</p>
+    <label for="mail-to">Send to</label>
+    <input type="text" id="mail-to" placeholder="name@company.com" autocomplete="email"
+           onkeydown="if(event.key==='Enter')sendEmailExport()">
+    <small>Separate up to 5 addresses with commas.</small>
+    <div class="mail-actions">
+      <button type="button" class="tbl-reset" onclick="closeEmailDialog()">Cancel</button>
+      <button type="button" class="mail-send" id="mail-send" onclick="sendEmailExport()">
+        <i class="fa fa-paper-plane"></i> Send
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <div class="toast-icon-wrap"><i id="toast-icon"></i></div>
   <span id="toast-msg"></span>
@@ -1124,7 +1171,9 @@ function openNewForm() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('form-card').classList.contains('open')) closeForm();
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('mail-overlay').classList.contains('open')) closeEmailDialog();
+  else if (document.getElementById('form-card').classList.contains('open')) closeForm();
 });
 
 function closeForm() {
@@ -1271,9 +1320,7 @@ function filteredRows() {
 }
 
 // ── export ─────────────────────────────────────────────────────────
-function exportShipments() {
-  const rows = filteredRows();
-  if (!rows.length) { toast('No records to export.', 'error'); return; }
+function buildCsv(rows) {
   const cell = v => {
     const t = v == null ? '' : String(v);
     return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
@@ -1285,7 +1332,13 @@ function exportShipments() {
     const awb = r.awb_no ? '="' + String(r.awb_no).replace(/"/g, '""') + '"' : '';
     lines.push([i + 1, cell(r.date || ''), awb, cost, cell(r.status || '')].join(','));
   });
-  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  return lines.join('\r\n');
+}
+
+function exportShipments() {
+  const rows = filteredRows();
+  if (!rows.length) { toast('No records to export.', 'error'); return; }
+  const blob = new Blob(['\ufeff' + buildCsv(rows)], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1295,6 +1348,44 @@ function exportShipments() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   toast('Exported ' + rows.length + ' record' + (rows.length !== 1 ? 's' : '') + '.');
+}
+
+function openEmailDialog() {
+  const n = filteredRows().length;
+  if (!n) { toast('No records to email.', 'error'); return; }
+  document.getElementById('mail-sub').textContent =
+    n + ' record' + (n !== 1 ? 's' : '') + ' shown in the table will be sent as a CSV file.';
+  const inp = document.getElementById('mail-to');
+  try { if (!inp.value) inp.value = localStorage.getItem('lp_mail_to') || ''; } catch {}
+  document.getElementById('mail-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 50);
+}
+function closeEmailDialog() {
+  document.getElementById('mail-overlay').classList.remove('open');
+}
+async function sendEmailExport() {
+  const rows = filteredRows();
+  const to = document.getElementById('mail-to').value.trim();
+  if (!to) { toast('Enter an email address.', 'error'); return; }
+  const btn = document.getElementById('mail-send');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending…';
+  try {
+    const res = await fetch('/api/email/export', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ to, csv: '\ufeff' + buildCsv(rows), count: rows.length })
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.success) throw new Error(d.error || 'Could not send the email.');
+    try { localStorage.setItem('lp_mail_to', to); } catch {}
+    closeEmailDialog();
+    toast('Sent ' + rows.length + ' record' + (rows.length !== 1 ? 's' : '') + ' to ' + to + '.');
+  } catch (err) {
+    toast(err.message || 'Could not send the email.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-paper-plane"></i> Send';
+  }
 }
 
 function renderTable() {
