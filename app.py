@@ -273,6 +273,7 @@ def dashboard():
             transit   = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Transit'")['n']
             delivered = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Delivered'")['n']
             returned  = pg_one(conn, "SELECT COUNT(*) AS n FROM shipments WHERE status='Returned'")['n']
+            total_cost = pg_one(conn, 'SELECT COALESCE(SUM(cost), 0) AS n FROM shipments')['n']
             monthly   = pg_rows(conn,
                 "SELECT LEFT(date,7) AS month, COUNT(*) AS count "
                 "FROM shipments WHERE date IS NOT NULL AND date != '' "
@@ -287,6 +288,7 @@ def dashboard():
             transit   = conn.execute("SELECT COUNT(*) FROM shipments WHERE status='Transit'").fetchone()[0]
             delivered = conn.execute("SELECT COUNT(*) FROM shipments WHERE status='Delivered'").fetchone()[0]
             returned  = conn.execute("SELECT COUNT(*) FROM shipments WHERE status='Returned'").fetchone()[0]
+            total_cost = conn.execute('SELECT COALESCE(SUM(cost), 0) FROM shipments').fetchone()[0]
             monthly   = [dict(r) for r in conn.execute(
                 "SELECT strftime('%Y-%m',date) AS month, COUNT(*) AS count "
                 "FROM shipments WHERE date IS NOT NULL "
@@ -296,6 +298,7 @@ def dashboard():
     return jsonify({
         'total': total, 'transit': transit,
         'delivered': delivered, 'returned': returned,
+        'total_cost': round(float(total_cost or 0), 2),
         'monthly': monthly
     })
 
