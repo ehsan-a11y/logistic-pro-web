@@ -444,6 +444,37 @@ thead th .th-icon i{font-size:11px;opacity:.6}
 }
 .filter-pill button:hover{color:#ef4444}
 
+.tbl-tools{
+  display:flex;gap:10px;padding:12px 20px;border-bottom:1px solid var(--border);
+  flex-wrap:wrap;align-items:center;
+}
+.tbl-search{position:relative;flex:1 1 240px;max-width:360px}
+.tbl-search i{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--muted);font-size:13px;pointer-events:none;
+}
+.tbl-search input,.tbl-status{
+  width:100%;height:40px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--card);color:var(--text);font:inherit;font-size:13px;
+  transition:border-color .15s,box-shadow .15s;
+}
+.tbl-search input{padding:0 34px 0 36px}
+.tbl-search input:focus,.tbl-status:focus{
+  outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light);
+}
+.tbl-search .tbl-clear{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  width:28px;height:28px;border-radius:6px;display:none;align-items:center;justify-content:center;
+}
+.tbl-search .tbl-clear:hover{color:#ef4444}
+.tbl-status{flex:0 0 170px;width:170px;padding:0 12px;cursor:pointer}
+@media(max-width:600px){
+  .tbl-tools{padding:10px 14px}
+  .tbl-search{max-width:none;flex-basis:100%}
+  .tbl-status{flex:1 1 100%;width:100%}
+  .tbl-search input,.tbl-status{font-size:16px}
+}
 .rec-count{
   font-size:12px;color:var(--muted);font-weight:600;
   background:#f1f5f9;padding:5px 12px;border-radius:20px;
@@ -878,6 +909,22 @@ tbody tr.selected td:first-child{
           <span class="rec-count" id="rec-count">0 records</span>
         </div>
       </div>
+      <div class="tbl-tools">
+        <div class="tbl-search">
+          <i class="fa fa-magnifying-glass"></i>
+          <input type="search" id="awb-search" placeholder="Search AWB No." aria-label="Search by AWB number"
+                 autocomplete="off" oninput="onAwbSearch(this.value)">
+          <button type="button" class="tbl-clear" id="awb-clear" onclick="clearAwbSearch()" title="Clear search" aria-label="Clear search">
+            <i class="fa fa-xmark" style="position:static;transform:none"></i>
+          </button>
+        </div>
+        <select id="status-filter" class="tbl-status" aria-label="Filter by status" onchange="onStatusFilter(this.value)">
+          <option value="">All statuses</option>
+          <option value="Transit">Transit</option>
+          <option value="Delivered">Delivered</option>
+          <option value="Returned">Returned</option>
+        </select>
+      </div>
       <div class="tbl-wrap">
         <table>
           <thead>
@@ -924,6 +971,7 @@ let statusChart = null;
 let monthChart  = null;
 let filterStatus = '';
 let filterMonth  = '';
+let filterAwb    = '';
 let monthlyData  = [];
 let awbObjectUrl  = null;   // blob URL for newly selected AWB file
 let invObjectUrl  = null;   // blob URL for newly selected invoice file
@@ -963,6 +1011,24 @@ function goFilter(type, value) {
 function clearFilter() {
   filterStatus = '';
   filterMonth  = '';
+  filterAwb    = '';
+  const inp = document.getElementById('awb-search');
+  if (inp) inp.value = '';
+  renderTable();
+}
+function onAwbSearch(v) {
+  filterAwb = v.trim();
+  renderTable();
+}
+function clearAwbSearch() {
+  const inp = document.getElementById('awb-search');
+  inp.value = '';
+  filterAwb = '';
+  renderTable();
+  inp.focus();
+}
+function onStatusFilter(v) {
+  filterStatus = v;
   renderTable();
 }
 
@@ -1143,6 +1209,16 @@ function renderTable() {
   let rows = allRows;
   if (filterStatus) rows = rows.filter(r => r.status === filterStatus);
   if (filterMonth)  rows = rows.filter(r => r.date && r.date.slice(0,7) === filterMonth);
+  if (filterAwb) {
+    const q = filterAwb.toLowerCase();
+    rows = rows.filter(r => (r.awb_no || '').toLowerCase().includes(q));
+  }
+
+  // keep toolbar controls in sync (dashboard clicks set filterStatus)
+  const sf = document.getElementById('status-filter');
+  if (sf && sf.value !== filterStatus) sf.value = filterStatus;
+  const ac = document.getElementById('awb-clear');
+  if (ac) ac.style.display = filterAwb ? 'flex' : 'none';
 
   // filter pill
   const pill = document.getElementById('filter-pill');
