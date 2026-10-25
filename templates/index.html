@@ -162,7 +162,7 @@ body{
 .topbar .topbar-logo{font-size:15px;font-weight:800;color:#fff}
 
 /* ── main ────────────────────────────────────────────────── */
-.main{margin-left:var(--sidebar-w);flex:1;padding:28px 28px 48px;min-height:100vh}
+.main{margin-left:var(--sidebar-w);flex:1;min-width:0;padding:28px 28px 48px;min-height:100vh}
 
 .page{display:none;animation:fadeIn .25s ease}.page.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -247,6 +247,35 @@ body{
 }
 .form-card.open{display:block;animation:slideDown .25s ease}
 @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+
+/* desktop: form slides in as a panel on the right */
+@media(min-width:901px){
+  .form-card{
+    position:fixed;top:0;right:0;bottom:0;
+    width:min(460px,100vw);margin:0;
+    border-radius:var(--radius) 0 0 var(--radius);
+    display:flex;flex-direction:column;
+    z-index:300;overflow:hidden;
+    box-shadow:-12px 0 48px rgba(15,23,42,.18);
+    transform:translateX(105%);visibility:hidden;
+    transition:transform .32s cubic-bezier(.4,0,.2,1),visibility 0s linear .32s;
+  }
+  .form-card.open{
+    display:flex;animation:none;transform:translateX(0);visibility:visible;
+    transition:transform .32s cubic-bezier(.4,0,.2,1),visibility 0s;
+  }
+  .form-card-header{flex-shrink:0;padding:22px 24px}
+  .form-card .form-body{flex:1;overflow-y:auto}
+  .form-card .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form-card .form-group,.form-card .input-wrap{min-width:0}
+  .form-card .form-group input,.form-card .form-group select{width:100%;min-width:0}
+  .form-card .file-row{flex-direction:column;gap:10px}
+  .form-card .file-item{min-width:0;width:100%}
+  .form-card .btn-row .btn{flex:1 1 calc(50% - 5px);justify-content:center}
+}
+@media(prefers-reduced-motion:reduce){
+  .form-card,.form-card.open{transition:none}
+}
 
 .form-card-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -469,10 +498,22 @@ thead th .th-icon i{font-size:11px;opacity:.6}
 }
 .tbl-search .tbl-clear:hover{color:#ef4444}
 .tbl-status{flex:0 0 170px;width:170px;padding:0 12px;cursor:pointer}
+.tbl-reset{
+  height:40px;padding:0 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--card);color:var(--text);font:inherit;font-size:13px;font-weight:600;
+  display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  transition:border-color .15s,color .15s,background .15s;touch-action:manipulation;
+}
+.tbl-reset i{font-size:12px;color:var(--muted);transition:color .15s}
+.tbl-reset:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.tbl-reset:hover i{color:var(--primary)}
+.tbl-reset:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
 @media(max-width:600px){
   .tbl-tools{padding:10px 14px}
   .tbl-search{max-width:none;flex-basis:100%}
-  .tbl-status{flex:1 1 100%;width:100%}
+  .tbl-status{flex:1 1 auto;width:auto}
+  .tbl-reset{flex:0 0 auto;height:44px}
+  .tbl-status{height:44px}
   .tbl-search input,.tbl-status{font-size:16px}
 }
 .rec-count{
@@ -919,11 +960,14 @@ tbody tr.selected td:first-child{
           </button>
         </div>
         <select id="status-filter" class="tbl-status" aria-label="Filter by status" onchange="onStatusFilter(this.value)">
-          <option value="">All statuses</option>
+          <option value="">Status</option>
           <option value="Transit">Transit</option>
           <option value="Delivered">Delivered</option>
           <option value="Returned">Returned</option>
         </select>
+        <button type="button" class="tbl-reset" onclick="resetTableFilters()" title="Clear search and status">
+          <i class="fa fa-rotate-left"></i> Reset
+        </button>
       </div>
       <div class="tbl-wrap">
         <table>
@@ -1027,6 +1071,14 @@ function clearAwbSearch() {
   renderTable();
   inp.focus();
 }
+function resetTableFilters() {
+  filterStatus = '';
+  filterMonth  = '';
+  filterAwb    = '';
+  document.getElementById('awb-search').value = '';
+  document.getElementById('status-filter').value = '';
+  renderTable();
+}
 function onStatusFilter(v) {
   filterStatus = v;
   renderTable();
@@ -1065,12 +1117,12 @@ function openNewForm() {
   document.getElementById('btn-update').disabled = true;
   document.getElementById('btn-delete').disabled = true;
   document.getElementById('form-card').classList.add('open');
-  if (window.innerWidth <= 600) {
-    document.getElementById('form-overlay').classList.add('open');
-  } else {
-    document.getElementById('form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+  document.getElementById('form-overlay').classList.add('open');
 }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('form-card').classList.contains('open')) closeForm();
+});
 
 function closeForm() {
   document.getElementById('form-card').classList.remove('open');
@@ -1294,11 +1346,7 @@ function selectRow(id) {
   document.getElementById('btn-update').disabled = false;
   document.getElementById('btn-delete').disabled = false;
   document.getElementById('form-card').classList.add('open');
-  if (window.innerWidth <= 600) {
-    document.getElementById('form-overlay').classList.add('open');
-  } else {
-    document.getElementById('form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+  document.getElementById('form-overlay').classList.add('open');
   renderTable();
 }
 
