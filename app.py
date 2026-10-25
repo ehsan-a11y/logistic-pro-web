@@ -333,36 +333,6 @@ def email_status():
                     'reportFrequency': 'weekly' if REPORT_FREQ == 'weekly' else 'daily'})
 
 
-@app.route('/api/email/export', methods=['POST'])
-def email_export():
-    """Email a CSV (generated in the browser from the current table view)."""
-    d = request.get_json(silent=True) or {}
-    to = [t.strip() for t in str(d.get('to', '')).replace(';', ',').split(',') if t.strip()]
-    csv_text = d.get('csv') or ''
-    count = int(d.get('count') or 0)
-    if not to:
-        return jsonify({'success': False, 'error': 'Enter at least one email address.'}), 400
-    if len(to) > 5:
-        return jsonify({'success': False, 'error': 'Send to 5 addresses or fewer.'}), 400
-    bad = [t for t in to if not valid_email(t)]
-    if bad:
-        return jsonify({'success': False, 'error': 'Not a valid email address: ' + ', '.join(bad)}), 400
-    if not csv_text or len(csv_text) > 2_000_000:
-        return jsonify({'success': False, 'error': 'Nothing to send.'}), 400
-    import datetime as dt
-    fname = 'shipments-{}.csv'.format(dt.date.today().isoformat())
-    subject = 'Shipment data export ({} record{})'.format(count, '' if count == 1 else 's')
-    body = ('<p style="margin:0 0 10px">Your shipment data is attached as <b>' + _esc(fname) + '</b>.</p>'
-            '<p style="margin:0;color:#64748b">' + str(count) + ' record' + ('' if count == 1 else 's')
-            + '. Opens in Excel, Google Sheets or Numbers.</p>')
-    ok, err = send_email(to, subject, _email_shell(subject, body),
-                         'Your shipment data is attached ({} records).'.format(count),
-                         [(fname, csv_text.encode('utf-8'), 'text/csv')])
-    if not ok:
-        return jsonify({'success': False, 'error': err}), 502
-    return jsonify({'success': True})
-
-
 @app.route('/api/cron/summary')
 def cron_summary():
     """Send the summary report. Called by Vercel Cron every day at 08:00 Dubai time."""
