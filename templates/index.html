@@ -504,6 +504,47 @@ thead th .th-icon i{font-size:11px;opacity:.6}
   display:inline-flex;align-items:center;gap:7px;cursor:pointer;
   transition:border-color .15s,color .15s,background .15s;touch-action:manipulation;
 }
+.set-card{max-width:720px}
+.set-body{padding:18px 20px 20px}
+.set-help{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px}
+.set-add{display:flex;gap:10px}
+.set-add input{
+  flex:1;min-width:0;height:42px;padding:0 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font:inherit;font-size:14px;color:var(--text);background:#fafbff;outline:none;
+}
+.set-add input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
+.mail-add-btn{
+  height:42px;padding:0 18px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;
+  font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px;cursor:pointer;flex-shrink:0;
+}
+.mail-add-btn:hover{background:var(--primary-dark)}
+.mail-add-btn:disabled{opacity:.6;cursor:wait}
+.mail-add-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
+.set-list{list-style:none;margin:16px 0 0;padding:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.set-list li{display:flex;align-items:center;gap:12px;padding:11px 14px;font-size:14px}
+.set-list li + li{border-top:1px solid var(--border)}
+.set-list .set-av{
+  width:30px;height:30px;border-radius:50%;background:var(--primary-light);color:var(--primary);
+  display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0;text-transform:uppercase;
+}
+.set-list .set-addr{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-list .set-del{
+  width:32px;height:32px;border:none;border-radius:8px;background:none;color:var(--muted);cursor:pointer;
+  display:grid;place-items:center;flex-shrink:0;
+}
+.set-list .set-del:hover{background:#fee2e2;color:#dc2626}
+.set-list .set-del:focus-visible{outline:none;box-shadow:0 0 0 3px #fecaca}
+.set-list .set-empty{color:var(--muted);justify-content:center;font-size:13px;padding:18px}
+.set-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap}
+.set-count{font-size:12px;color:var(--muted)}
+.set-status{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px}
+.set-status.ok{background:#dcfce7;color:#15803d}
+.set-status.off{background:#fef3c7;color:#b45309}
+@media(max-width:600px){
+  .set-body{padding:14px}
+  .set-add input{font-size:16px;height:44px}
+  .mail-add-btn{height:44px}
+}
 .tbl-reset i{font-size:12px;color:var(--muted);transition:color .15s}
 .tbl-reset:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .tbl-reset:hover i{color:var(--primary)}
@@ -738,6 +779,10 @@ tbody tr.selected td:first-child{
       <div class="nav-icon"><i class="fa fa-box"></i></div>
       Shipment
       <span class="nav-badge" id="nav-badge" style="display:none">0</span>
+    </div>
+    <div class="nav-item" id="nav-settings" onclick="navigate('settings')">
+      <div class="nav-icon"><i class="fa fa-gear"></i></div>
+      Settings
     </div>
   </nav>
 
@@ -990,6 +1035,44 @@ tbody tr.selected td:first-child{
     </div>
   </div>
 
+  <!-- ───────────  SETTINGS  ─────────── -->
+  <div id="page-settings" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#64748b,#475569);box-shadow:0 4px 14px rgba(71,85,105,.3)"><i class="fa fa-gear"></i></div>
+        <div class="page-header-text">
+          <h2>Settings</h2>
+          <p>Manage email notifications</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-card set-card">
+      <div class="table-hdr">
+        <div class="section-title">
+          <div class="s-icon"><i class="fa fa-envelope"></i></div>
+          <h3>Notification recipients</h3>
+        </div>
+        <div class="table-hdr-right">
+          <span class="set-status" id="set-status"></span>
+        </div>
+      </div>
+      <div class="set-body">
+        <p class="set-help">These addresses receive new-shipment alerts, status changes and the daily summary at 8:00 AM. Changes take effect immediately.</p>
+        <div class="set-add">
+          <input type="email" id="set-new" placeholder="name@company.com" autocomplete="email"
+                 aria-label="Email address to add" onkeydown="if(event.key==='Enter'){event.preventDefault();addRecipient()}">
+          <button type="button" class="mail-add-btn" id="set-add-btn" onclick="addRecipient()"><i class="fa fa-plus"></i> Add</button>
+        </div>
+        <ul class="set-list" id="set-list"><li class="set-empty">Loading…</li></ul>
+        <div class="set-foot">
+          <span class="set-count" id="set-count"></span>
+          <button type="button" class="tbl-reset" id="set-test-btn" onclick="sendTestEmail()"><i class="fa fa-paper-plane"></i> Send test email</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <!-- toast -->
@@ -1007,6 +1090,10 @@ tbody tr.selected td:first-child{
   <div class="bn-item" id="bn-shipment" onclick="navigate('shipment')">
     <i class="fa fa-box"></i>
     <span>Shipment</span>
+  </div>
+  <div class="bn-item" id="bn-settings" onclick="navigate('settings')">
+    <i class="fa fa-gear"></i>
+    <span>Settings</span>
   </div>
 </nav>
 
@@ -1042,6 +1129,7 @@ function navigate(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-'  + page).classList.add('active');
   if (page === 'dashboard') updateDashboard();
+  if (page === 'settings') loadRecipients();
   closeSidebar();
   document.querySelectorAll('.bn-item').forEach(n => n.classList.remove('active'));
   const bn = document.getElementById('bn-' + page);
@@ -1300,6 +1388,93 @@ function exportShipments() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   toast('Exported ' + rows.length + ' record' + (rows.length !== 1 ? 's' : '') + '.');
+}
+
+// ── settings: notification recipients ─────────────────────────────
+let recipients = [];
+let recipientsMax = 20;
+const escHtml = v => String(v == null ? '' : v).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function renderRecipients() {
+  const list = document.getElementById('set-list');
+  list.innerHTML = recipients.length
+    ? recipients.map((e, i) => `<li>
+        <span class="set-av">${escHtml(e.charAt(0))}</span>
+        <span class="set-addr" title="${escHtml(e)}">${escHtml(e)}</span>
+        <button type="button" class="set-del" onclick="removeRecipient(${i})" aria-label="Remove ${escHtml(e)}" title="Remove">
+          <i class="fa fa-trash-can"></i></button>
+      </li>`).join('')
+    : '<li class="set-empty">No recipients yet. Notifications won’t be sent until you add one.</li>';
+  document.getElementById('set-count').textContent =
+    recipients.length + ' of ' + recipientsMax + ' addresses';
+  document.getElementById('set-test-btn').disabled = !recipients.length;
+}
+
+async function loadRecipients() {
+  try {
+    const d = await fetch('/api/settings/recipients', {cache: 'no-store'}).then(r => r.json());
+    recipients = d.emails || [];
+    recipientsMax = d.max || 20;
+    const st = document.getElementById('set-status');
+    st.className = 'set-status ' + (d.configured ? 'ok' : 'off');
+    st.textContent = d.configured ? 'Email connected' : 'Email not connected';
+    renderRecipients();
+  } catch {
+    document.getElementById('set-list').innerHTML = '<li class="set-empty">Couldn’t load recipients. Refresh to try again.</li>';
+  }
+}
+
+async function saveRecipients(next, okMsg) {
+  const res = await fetch('/api/settings/recipients', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ emails: next })
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok || !d.success) throw new Error(d.error || 'Couldn’t save. Try again.');
+  recipients = d.emails;
+  renderRecipients();
+  toast(okMsg);
+}
+
+async function addRecipient() {
+  const inp = document.getElementById('set-new');
+  const email = inp.value.trim();
+  if (!email) { inp.focus(); return; }
+  if (!/^[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]{2,}$/.test(email)) { toast('Enter a valid email address.', 'error'); return; }
+  if (recipients.some(e => e.toLowerCase() === email.toLowerCase())) { toast('That address is already on the list.', 'error'); return; }
+  if (recipients.length >= recipientsMax) { toast('You can add up to ' + recipientsMax + ' addresses.', 'error'); return; }
+  const btn = document.getElementById('set-add-btn');
+  btn.disabled = true;
+  try {
+    await saveRecipients([...recipients, email], 'Added ' + email + '.');
+    inp.value = '';
+    inp.focus();
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+
+async function removeRecipient(i) {
+  const email = recipients[i];
+  if (!confirm('Stop sending notifications to ' + email + '?')) return;
+  try { await saveRecipients(recipients.filter((_, j) => j !== i), 'Removed ' + email + '.'); }
+  catch (err) { toast(err.message, 'error'); }
+}
+
+async function sendTestEmail() {
+  const btn = document.getElementById('set-test-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending…';
+  try {
+    const res = await fetch('/api/settings/test-email', { method: 'POST' });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.success) throw new Error(d.error || 'Couldn’t send the test email.');
+    toast('Test email sent to ' + d.sentTo.length + ' address' + (d.sentTo.length !== 1 ? 'es' : '') + '.');
+  } catch (err) { toast(err.message, 'error'); }
+  finally {
+    btn.innerHTML = '<i class="fa fa-paper-plane"></i> Send test email';
+    btn.disabled = !recipients.length;
+  }
 }
 
 function renderTable() {
