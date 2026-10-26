@@ -63,6 +63,12 @@ def ensure_db():
                     created_at   TIMESTAMP DEFAULT NOW()
                 )
             ''')
+            pg_run(conn, '''
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            ''')
         finally:
             conn.close()
     else:
@@ -85,6 +91,12 @@ def ensure_db():
                 )
             except Exception:
                 pass
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            ''')
     _db_initialised = True
 
 
@@ -154,6 +166,52 @@ _EMAIL_RE = None
 
 def email_configured():
     return bool(SMTP_USER and SMTP_PASSWORD)
+
+
+MAX_RECIPIENTS = 20
+
+
+def get_setting(key):
+    if USE_PG:
+        conn = get_pg()
+        try:
+            row = pg_one(conn, 'SELECT value FROM app_settings WHERE key = $1', (key,))
+        finally:
+            conn.close()
+        return row['value'] if row else None
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute('SELECT value FROM app_settings WHERE key=?', (key,)).fetchone()
+        return row[0] if row else None
+
+
+def set_setting(key, value):
+    if USE_PG:
+        conn = get_pg()
+        try:
+            pg_run(conn, 'INSERT INTO app_settings (key, value) VALUES ($1, $2) '
+                         'ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', (key, value))
+        finally:
+            conn.close()
+        return
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('INSERT INTO app_settings (key, value) VALUES (?, ?) '
+                     'ON CONFLICT(key) DO UPDATE SET value=excluded.value', (key, value))
+
+
+def get_alert_emails():
+    """Recipients saved on the Settings page; falls back to ALERT_EMAILS until first saved."""
+    import json
+    try:
+        saved = get_setting('alert_emails')
+    except Exception as exc:
+        print('[email] could not read recipients:', exc)
+        saved = None
+    if saved is not None:
+        try:
+            return [e for e in json.loads(saved) if isinstance(e, str) and e]
+        except ValueError:
+            pass
+    return list(ALERT_EMAILS)
 
 
 def valid_email(addr):
@@ -237,7 +295,8 @@ def _detail_rows(pairs):
 
 def notify_shipment(row, event, old_status=None):
     """Email ALERT_EMAILS about a new shipment or a status change."""
-    if not (email_configured() and ALERT_EMAILS and row):
+    recipients = get_alert_emails()
+    if not (email_configured() and recipients and row):
         return
     awb = row.get('awb_no') or '—'
     status = row.get('status') or '—'
@@ -258,7 +317,7 @@ def notify_shipment(row, event, old_status=None):
     text = '{}\nAWB No.: {}\nDate: {}\nCost (AED): {}\nStatus: {}\n{}'.format(
         intro, awb, row.get('date') or '—', _money(row.get('cost')),
         (old_status + ' -> ' + status) if event != 'added' else status, APP_URL)
-    ok, err = send_email(ALERT_EMAILS, subject, _email_shell(subject, body), text)
+    ok, err = send_email(recipients, subject, _email_shell(subject, body), text)
     if not ok:
         print('[email] alert not sent:', err)
 
@@ -329,7 +388,7 @@ def build_summary(rows, days):
 
 @app.route('/api/email/status')
 def email_status():
-    return jsonify({'configured': email_configured(), 'alerts': bool(ALERT_EMAILS),
+    return jsonify({'configured': email_configured(), 'alerts': bool(get_alert_emails()),
                     'reportFrequency': 'weekly' if REPORT_FREQ == 'weekly' else 'daily'})
 
 
@@ -343,11 +402,58 @@ def cron_summary():
     force = request.args.get('force') == '1' and bool(CRON_SECRET)
     if weekly and dt.date.today().weekday() != 0 and not force:
         return jsonify({'success': True, 'skipped': 'weekly report is sent on Mondays'})
-    if not (email_configured() and ALERT_EMAILS):
-        return jsonify({'success': False, 'error': 'Email or ALERT_EMAILS not set up.'})
+    recipients = get_alert_emails()
+    if not (email_configured() and recipients):
+        return jsonify({'success': False, 'error': 'Email or recipients not set up.'})
     subject, html, text = build_summary(all_shipments(), 7 if weekly else 1)
-    ok, err = send_email(ALERT_EMAILS, subject, html, text)
+    ok, err = send_email(recipients, subject, html, text)
     return jsonify({'success': ok, 'error': err})
+
+
+@app.route('/api/settings/recipients', methods=['GET'])
+def get_recipients():
+    return jsonify({'emails': get_alert_emails(), 'configured': email_configured(),
+                    'max': MAX_RECIPIENTS})
+
+
+@app.route('/api/settings/recipients', methods=['PUT'])
+def save_recipients():
+    import json
+    d = request.get_json(silent=True) or {}
+    raw = d.get('emails')
+    if not isinstance(raw, list):
+        return jsonify({'success': False, 'error': 'Invalid request.'}), 400
+    emails, seen = [], set()
+    for e in raw:
+        e = str(e).strip()
+        if not e:
+            continue
+        if not valid_email(e):
+            return jsonify({'success': False, 'error': 'Not a valid email address: ' + e}), 400
+        if e.lower() not in seen:
+            seen.add(e.lower())
+            emails.append(e)
+    if len(emails) > MAX_RECIPIENTS:
+        return jsonify({'success': False,
+                        'error': 'You can add up to {} addresses.'.format(MAX_RECIPIENTS)}), 400
+    set_setting('alert_emails', json.dumps(emails))
+    return jsonify({'success': True, 'emails': emails})
+
+
+@app.route('/api/settings/test-email', methods=['POST'])
+def test_email():
+    recipients = get_alert_emails()
+    if not recipients:
+        return jsonify({'success': False, 'error': 'Add at least one email address first.'}), 400
+    subject = 'Test notification from Logistic Pro'
+    body = ('<p style="margin:0 0 10px">Email notifications are working.</p>'
+            '<p style="margin:0;color:#64748b">This address will receive new-shipment alerts, '
+            'status changes and the summary report.</p>')
+    ok, err = send_email(recipients, subject, _email_shell(subject, body),
+                         'Email notifications from Logistic Pro are working.')
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 502
+    return jsonify({'success': True, 'sentTo': recipients})
 
 
 # ── routes ────────────────────────────────────────────────────────────────────
