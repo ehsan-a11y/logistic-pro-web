@@ -725,7 +725,7 @@ tbody tr.selected td:first-child{
   .page-header{flex-direction:column;align-items:stretch;gap:10px}
 
   /* table: hide # column, tighten cells */
-  thead th:first-child,tbody td:first-child{display:none}
+  #page-shipment thead th:first-child,#page-shipment tbody td:first-child{display:none}
   table{min-width:0;width:100%}
   thead th,tbody td{padding:10px 10px;font-size:12px;white-space:nowrap}
   .badge{font-size:11px;padding:3px 7px}
@@ -739,15 +739,175 @@ tbody tr.selected td:first-child{
   .chart-wrap{height:200px}
   .main{padding:66px 10px 76px}
 }
+/* ── auth screen ─────────────────────────────────────────── */
+.auth{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;
+  padding:20px;background:linear-gradient(160deg,#0f172a 0%,#1e2a5a 100%)}
+.auth.open{display:flex}
+.auth-card{width:100%;max-width:400px;background:var(--card);border-radius:var(--radius);
+  box-shadow:0 20px 60px rgba(0,0,0,.35);padding:30px 28px}
+.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.auth-brand .logo{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--primary),#818cf8);color:#fff;font-size:17px}
+.auth-brand b{display:block;font-size:16px}
+.auth-brand small{font-size:12px;color:var(--muted)}
+.auth-card h2{font-size:19px;font-weight:700;margin-bottom:4px}
+.auth-card .auth-sub{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+.auth-card label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:12px 0 6px}
+.auth-card input{width:100%;height:44px;padding:0 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font:inherit;font-size:15px;color:var(--text);background:#fafbff;outline:none}
+.auth-card input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.12)}
+.auth-card input[readonly]{background:#f1f5f9;color:#64748b}
+.auth-btn{width:100%;height:46px;margin-top:20px;border:none;border-radius:var(--radius-sm);cursor:pointer;
+  background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;font:inherit;font-size:14px;font-weight:700}
+.auth-btn:disabled{opacity:.6;cursor:wait}
+.auth-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
+.auth-link{display:block;margin-top:14px;text-align:center;font-size:13px;color:var(--primary);background:none;border:none;cursor:pointer;width:100%;font:inherit}
+.auth-err{margin-top:12px;font-size:13px;color:#dc2626;min-height:18px}
+.auth-ok{margin-top:12px;font-size:13px;color:#15803d}
+
+/* ── sidebar user ────────────────────────────────────────── */
+.sidebar-footer .user-meta{flex:1;min-width:0}
+.sidebar-footer .user-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logout-btn{background:rgba(255,255,255,.07);border:none;color:rgba(255,255,255,.6);width:34px;height:34px;
+  border-radius:9px;cursor:pointer;display:grid;place-items:center;flex-shrink:0}
+.logout-btn:hover{background:rgba(239,68,68,.25);color:#fff}
+.topbar-logout{margin-left:auto;background:rgba(255,255,255,.08);border:none;color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer}
+
+/* ── shared module UI ────────────────────────────────────── */
+.mod-tools{display:flex;gap:10px;padding:12px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.mod-tools input,.mod-tools select{height:40px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--card);color:var(--text);font:inherit;font-size:13px;padding:0 12px}
+.mod-tools input{flex:1 1 220px;max-width:320px}
+.mod-tools select{flex:0 0 190px}
+.mod-tools input:focus,.mod-tools select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.hdr-actions{display:flex;gap:8px;flex-wrap:wrap}
+.hdr-actions .add-btn.alt{background:var(--card);color:var(--text);border:1.5px solid var(--border);box-shadow:none}
+.hdr-actions .add-btn.alt:hover{border-color:var(--primary);color:var(--primary)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+th.num{text-align:right}
+.clickable tbody tr{cursor:pointer}
+.empty-row td{text-align:center;color:var(--muted);padding:36px 12px !important}
+.badge-ok{background:#d1fae5;color:#065f46}
+.badge-low{background:#fef3c7;color:#92400e}
+.badge-out{background:#fee2e2;color:#991b1b}
+.badge-muted{background:#f1f5f9;color:#475569}
+.badge-pick_list{background:#e0e7ff;color:#3730a3}
+.badge-picked{background:#fef3c7;color:#92400e}
+.badge-packed{background:#cffafe;color:#155e75}
+.badge-shipped{background:#d1fae5;color:#065f46}
+.badge-cancelled{background:#f1f5f9;color:#64748b}
+.badge-urgent{background:#fee2e2;color:#991b1b}
+.ops-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.ops-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;
+  display:flex;align-items:center;gap:14px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.ops-card:hover{border-color:var(--primary-light)}
+.ops-card .oi{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.ops-card b{display:block;font-size:22px;line-height:1.1}
+.ops-card span{font-size:12px;color:var(--muted);font-weight:500}
+@media(max-width:1100px){.ops-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.ops-grid{gap:10px}.ops-card{padding:12px}.ops-card b{font-size:18px}
+  .mod-tools{padding:10px 14px}.mod-tools input,.mod-tools select{flex:1 1 100%;max-width:none;font-size:16px;height:44px}
+  .hdr-actions{width:100%}.hdr-actions .add-btn{flex:1;justify-content:center}}
+
+/* ── side panel content ─────────────────────────────────── */
+#panel .form-body{padding:20px 22px}
+.pf{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.pf label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.pf input,.pf select,.pf textarea{width:100%;min-width:0;height:42px;padding:0 12px;border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);font:inherit;font-size:14px;color:var(--text);background:#fafbff;outline:none}
+.pf textarea{height:72px;padding:10px 12px;resize:vertical}
+.pf input:focus,.pf select:focus,.pf textarea:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
+.pf-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.pf-hint{font-size:12px;color:var(--muted);margin-top:2px}
+.p-sec{font-size:12px;font-weight:700;color:var(--text);margin:18px 0 10px;display:flex;align-items:center;gap:7px}
+.p-sec i{color:var(--primary)}
+.kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 12px;font-size:13px;margin-bottom:6px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:500;word-break:break-word}
+.mini{width:100%;min-width:0 !important;border-collapse:collapse;font-size:13px;table-layout:auto}
+.mini thead th{background:none;position:static}
+#panel .form-body{overflow-x:hidden}
+.mini th:first-child,.mini td:first-child{display:table-cell !important}
+.mini td,.mini th{white-space:normal}
+.u-row > .badge{justify-self:start}
+.mini th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
+.mini td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+.mini input{width:72px;height:36px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font:inherit;font-size:14px;text-align:right}
+.mini .sub{display:block;font-size:11px;color:var(--muted)}
+.line-row{display:grid;grid-template-columns:minmax(0,1fr) 84px 36px;gap:8px;margin-bottom:8px;align-items:center}
+.line-row select,.line-row input{height:40px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%}
+.icon-btn{width:36px;height:36px;border:none;border-radius:9px;background:#f1f5f9;color:#64748b;cursor:pointer;display:grid;place-items:center}
+.icon-btn:hover{background:#fee2e2;color:#dc2626}
+.p-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.p-actions .pbtn{flex:1 1 calc(50% - 5px)}
+.pbtn{height:44px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--card);color:var(--text);
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 14px}
+.pbtn.primary{background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;border:none}
+.pbtn.success{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none}
+.pbtn.danger{color:#dc2626}
+.pbtn.danger:hover{background:#fee2e2;border-color:#fecaca}
+.pbtn:disabled{opacity:.55;cursor:not-allowed}
+.pbtn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
+.steps{display:flex;gap:4px;margin:2px 0 16px}
+.steps span{flex:1;height:6px;border-radius:3px;background:#e2e8f0}
+.steps span.on{background:var(--primary)}
+.steps span.x{background:#cbd5e1}
+.hist{list-style:none;margin:0;padding:0;font-size:13px}
+.hist li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.hist .q{font-weight:700;font-variant-numeric:tabular-nums}
+.hist .q.pos{color:#059669}.hist .q.neg{color:#dc2626}
+.hist small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.link-box{display:flex;gap:8px;margin-top:10px}
+.link-box input{flex:1;min-width:0;height:38px;border:1.5px solid var(--border);border-radius:9px;padding:0 10px;font-size:12px;background:#f8fafc;color:#475569}
+.u-row{display:grid;grid-template-columns:minmax(0,1fr) 130px auto;gap:10px;align-items:center;padding:11px 14px}
+.u-row + .u-row{border-top:1px solid var(--border)}
+.u-row .who b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u-row .who small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.u-row select{height:36px;border:1.5px solid var(--border);border-radius:8px;font:inherit;font-size:13px;padding:0 8px;background:var(--card)}
+.u-row .acts{display:flex;gap:6px}
+.u-row .acts button{height:36px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font:inherit;font-size:12px;font-weight:600;cursor:pointer;color:var(--text)}
+.u-row .acts button:hover{border-color:var(--primary);color:var(--primary)}
+.u-row.inactive{opacity:.55}
+.set-grid-3{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 140px auto;gap:10px;align-items:end}
+.set-grid-3 input,.set-grid-3 select{height:42px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%}
+@media(max-width:700px){.set-grid-3{grid-template-columns:1fr}.u-row{grid-template-columns:1fr}.u-row .acts{flex-wrap:wrap}}
+.box-list{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-top:14px}
+#print-area{display:none}
+@media print{
+  body{display:block;background:#fff}
+  body > *:not(#print-area){display:none !important}
+  #print-area{display:block;padding:24px;font-family:Arial,sans-serif;color:#000}
+  #print-area h1{font-size:20px;margin:0 0 4px}
+  #print-area table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
+  #print-area th,#print-area td{border:1px solid #999;padding:6px 8px;text-align:left}
+  #print-area .meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:13px;margin-top:12px}
+}
 </style>
 </head>
 <body>
+<!-- ═══════════════  SIGN IN  ═══════════════ -->
+<div class="auth" id="auth" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+  <div class="auth-card">
+    <div class="auth-brand"><div class="logo"><i class="fa fa-truck-fast"></i></div><div><b>Logistic Pro</b><small>Shipping Management</small></div></div>
+    <h2 id="auth-title">Sign in</h2>
+    <p class="auth-sub" id="auth-sub">Use your work email and password.</p>
+    <form id="auth-form" onsubmit="event.preventDefault();authSubmit()" novalidate>
+      <div id="auth-name-wrap" style="display:none"><label for="auth-name">Your name</label><input id="auth-name" autocomplete="name"></div>
+      <div id="auth-email-wrap"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="username" required></div>
+      <div id="auth-pw-wrap"><label for="auth-pw">Password</label><input id="auth-pw" type="password" autocomplete="current-password" required></div>
+      <div id="auth-pw2-wrap" style="display:none"><label for="auth-pw2">Confirm password</label><input id="auth-pw2" type="password" autocomplete="new-password"></div>
+      <div class="auth-err" id="auth-err" role="alert"></div>
+      <button class="auth-btn" id="auth-btn" type="submit">Sign in</button>
+    </form>
+    <button class="auth-link" id="auth-alt" type="button" onclick="authAlt()">Forgot password?</button>
+  </div>
+</div>
 
 <!-- mobile sidebar overlay -->
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- form overlay (mobile bottom sheet backdrop) -->
-<div id="form-overlay" class="form-overlay" onclick="closeForm()"></div>
+<div id="form-overlay" class="form-overlay" onclick="closeAllPanels()"></div>
 
 <!-- mobile topbar -->
 <div class="topbar">
@@ -756,6 +916,7 @@ tbody tr.selected td:first-child{
     <div class="topbar-logo-icon"><i class="fa fa-truck-fast"></i></div>
     <span class="topbar-logo">Logistic Pro</span>
   </div>
+  <button class="topbar-logout" onclick="logout()" aria-label="Sign out" title="Sign out"><i class="fa fa-right-from-bracket"></i></button>
 </div>
 
 <!-- ═══════════════  SIDEBAR  ═══════════════ -->
@@ -780,18 +941,27 @@ tbody tr.selected td:first-child{
       Shipment
       <span class="nav-badge" id="nav-badge" style="display:none">0</span>
     </div>
-    <div class="nav-item" id="nav-settings" onclick="navigate('settings')">
+    <div class="nav-item" id="nav-orders" onclick="navigate('orders')">
+      <div class="nav-icon"><i class="fa fa-clipboard-list"></i></div>
+      Orders
+    </div>
+    <div class="nav-item" id="nav-inventory" onclick="navigate('inventory')">
+      <div class="nav-icon"><i class="fa fa-boxes-stacked"></i></div>
+      Inventory
+    </div>
+    <div class="nav-item" id="nav-settings" data-perm="settings" onclick="navigate('settings')">
       <div class="nav-icon"><i class="fa fa-gear"></i></div>
       Settings
     </div>
   </nav>
 
   <div class="sidebar-footer">
-    <div class="avatar">L</div>
-    <div>
-      <div class="user-name">Logistic Pro</div>
-      <div class="user-role">Admin</div>
+    <div class="avatar" id="me-avatar">L</div>
+    <div class="user-meta">
+      <div class="user-name" id="me-name">Logistic Pro</div>
+      <div class="user-role" id="me-role"></div>
     </div>
+    <button class="logout-btn" onclick="logout()" aria-label="Sign out" title="Sign out"><i class="fa fa-right-from-bracket"></i></button>
   </div>
   <div class="sidebar-version">v1.0 &nbsp;·&nbsp; Logistic Pro</div>
 </aside>
@@ -854,6 +1024,13 @@ tbody tr.selected td:first-child{
       </div>
     </div>
 
+    <div class="ops-grid">
+      <div class="ops-card" onclick="goOrders('pick_list')"><div class="oi" style="background:#e0e7ff;color:#3730a3"><i class="fa fa-hand"></i></div><div><b id="op-pick">0</b><span>To pick</span></div></div>
+      <div class="ops-card" onclick="goOrders('picked')"><div class="oi" style="background:#fef3c7;color:#92400e"><i class="fa fa-box-open"></i></div><div><b id="op-pack">0</b><span>To pack</span></div></div>
+      <div class="ops-card" onclick="goOrders('packed')"><div class="oi" style="background:#cffafe;color:#155e75"><i class="fa fa-truck-ramp-box"></i></div><div><b id="op-ship">0</b><span>Ready to ship</span></div></div>
+      <div class="ops-card" onclick="goLowStock()"><div class="oi" style="background:#fee2e2;color:#991b1b"><i class="fa fa-triangle-exclamation"></i></div><div><b id="op-low">0</b><span>Low stock items</span></div></div>
+    </div>
+
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-card-header">
@@ -888,7 +1065,7 @@ tbody tr.selected td:first-child{
           <p>Manage all your shipment records</p>
         </div>
       </div>
-      <button class="add-btn" onclick="openNewForm()">
+      <button class="add-btn" data-perm="shipments.edit" onclick="openNewForm()">
         <i class="fa fa-circle-plus"></i> Add Shipment
       </button>
     </div>
@@ -963,13 +1140,13 @@ tbody tr.selected td:first-child{
         </div>
 
         <div class="btn-row">
-          <button class="btn btn-save"   id="btn-save"   onclick="saveRecord()">
+          <button class="btn btn-save"   id="btn-save"   data-perm="shipments.edit" onclick="saveRecord()">
             <i class="fa fa-floppy-disk"></i> Save
           </button>
-          <button class="btn btn-update" id="btn-update" onclick="updateRecord()" disabled>
+          <button class="btn btn-update" id="btn-update" data-perm="shipments.edit" onclick="updateRecord()" disabled>
             <i class="fa fa-pen-to-square"></i> Update
           </button>
-          <button class="btn btn-delete" id="btn-delete" onclick="deleteRecord()" disabled>
+          <button class="btn btn-delete" id="btn-delete" data-perm="shipments.delete" onclick="deleteRecord()" disabled>
             <i class="fa fa-trash"></i> Delete
           </button>
           <button class="btn btn-clear" onclick="clearForm()">
@@ -1036,13 +1213,82 @@ tbody tr.selected td:first-child{
   </div>
 
   <!-- ───────────  SETTINGS  ─────────── -->
+  <!-- ───────────  ORDERS  ─────────── -->
+  <div id="page-orders" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 14px rgba(245,158,11,.35)"><i class="fa fa-clipboard-list"></i></div>
+        <div class="page-header-text"><h2>Orders</h2><p>Pick lists, picking, packing and dispatch</p></div>
+      </div>
+      <div class="hdr-actions"><button class="add-btn" data-perm="orders.create" onclick="openNewOrder()"><i class="fa fa-circle-plus"></i> New pick list</button></div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-list-check"></i></div><h3>Orders</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="ord-count">0 orders</span></div>
+      </div>
+      <div class="mod-tools">
+        <input type="search" id="ord-search" placeholder="Search order, destination" aria-label="Search orders" oninput="renderOrders()">
+        <select id="ord-filter" aria-label="Filter orders by status" onchange="renderOrders()">
+          <option value="open">Open orders</option>
+          <option value="pick_list">To pick</option>
+          <option value="picked">To pack</option>
+          <option value="packed">Ready to ship</option>
+          <option value="shipped">Shipped</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="">All orders</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Order</th><th>Date</th><th>Warehouse</th><th>Destination</th><th class="num">Items</th><th>Requested by</th><th>Status</th></tr></thead>
+          <tbody id="ord-body"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────  INVENTORY  ─────────── -->
+  <div id="page-inventory" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);box-shadow:0 4px 14px rgba(139,92,246,.35)"><i class="fa fa-boxes-stacked"></i></div>
+        <div class="page-header-text"><h2>Inventory</h2><p>Products and stock by warehouse</p></div>
+      </div>
+      <div class="hdr-actions">
+        <button class="add-btn alt" data-perm="stock.adjust" onclick="openTransfer()"><i class="fa fa-right-left"></i> Transfer</button>
+        <button class="add-btn alt" data-perm="stock.adjust" onclick="openAdjust()"><i class="fa fa-sliders"></i> Adjust stock</button>
+        <button class="add-btn" data-perm="products.manage" onclick="openProductForm()"><i class="fa fa-circle-plus"></i> Add product</button>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-cubes"></i></div><h3>Stock</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="inv-count">0 products</span></div>
+      </div>
+      <div class="mod-tools">
+        <input type="search" id="inv-search" placeholder="Search SKU or product" aria-label="Search products" oninput="renderProducts()">
+        <select id="inv-wh" aria-label="Warehouse" onchange="loadProducts()"><option value="">All warehouses</option></select>
+        <select id="inv-filter" aria-label="Stock status" onchange="renderProducts()">
+          <option value="">All stock</option><option value="low">Low stock</option><option value="out">Out of stock</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th><th class="num">Min</th><th>Status</th></tr></thead>
+          <tbody id="inv-body"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="page-settings" class="page">
     <div class="page-header">
       <div class="page-header-left">
         <div class="ph-icon" style="background:linear-gradient(135deg,#64748b,#475569);box-shadow:0 4px 14px rgba(71,85,105,.3)"><i class="fa fa-gear"></i></div>
         <div class="page-header-text">
           <h2>Settings</h2>
-          <p>Manage email notifications</p>
+          <p>Users, warehouses and notifications</p>
         </div>
       </div>
     </div>
@@ -1071,9 +1317,56 @@ tbody tr.selected td:first-child{
         </div>
       </div>
     </div>
+
+    <div class="table-card set-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-users"></i></div><h3>Users and roles</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="usr-count"></span></div>
+      </div>
+      <div class="set-body">
+        <p class="set-help">Invite people by email. They get a link to set their own password. Admin: everything · Requester: creates pick lists · Warehouse: stock, picking, packing, returns · Logistics: shipments.</p>
+        <div class="set-grid-3">
+          <input type="email" id="usr-email" placeholder="name@company.com" aria-label="Email to invite" autocomplete="off">
+          <input type="text" id="usr-name" placeholder="Name (optional)" aria-label="Name">
+          <select id="usr-role" aria-label="Role">
+            <option value="requester">Requester</option><option value="warehouse">Warehouse</option>
+            <option value="logistics">Logistics</option><option value="admin">Admin</option>
+          </select>
+          <button type="button" class="mail-add-btn" id="usr-add-btn" onclick="inviteUser()"><i class="fa fa-user-plus"></i> Invite</button>
+        </div>
+        <div id="usr-link"></div>
+        <div class="box-list" id="usr-list"><div class="u-row"><span class="set-count">Loading…</span></div></div>
+      </div>
+    </div>
+
+    <div class="table-card set-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-warehouse"></i></div><h3>Warehouses</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="whs-count"></span></div>
+      </div>
+      <div class="set-body">
+        <div class="set-grid-3">
+          <input type="text" id="whs-name" placeholder="Warehouse name" aria-label="Warehouse name">
+          <input type="text" id="whs-address" placeholder="Address / city" aria-label="Address">
+          <input type="text" id="whs-manager" placeholder="Responsible person" aria-label="Responsible person">
+          <button type="button" class="mail-add-btn" id="whs-add-btn" onclick="addWarehouse()"><i class="fa fa-plus"></i> Add</button>
+        </div>
+        <div class="box-list" id="whs-list"><div class="u-row"><span class="set-count">Loading…</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- generic side panel (orders, products, stock) -->
+  <div class="form-card" id="panel" role="dialog" aria-labelledby="panel-title">
+    <div class="form-card-header">
+      <div><h3 id="panel-title">Details</h3><p id="panel-sub"></p></div>
+      <button class="form-close-btn" onclick="closePanel()" aria-label="Close"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="form-body" id="panel-body"></div>
   </div>
 
 </main>
+<div id="print-area"></div>
 
 <!-- toast -->
 <div class="toast" id="toast">
@@ -1091,7 +1384,15 @@ tbody tr.selected td:first-child{
     <i class="fa fa-box"></i>
     <span>Shipment</span>
   </div>
-  <div class="bn-item" id="bn-settings" onclick="navigate('settings')">
+  <div class="bn-item" id="bn-orders" onclick="navigate('orders')">
+    <i class="fa fa-clipboard-list"></i>
+    <span>Orders</span>
+  </div>
+  <div class="bn-item" id="bn-inventory" onclick="navigate('inventory')">
+    <i class="fa fa-boxes-stacked"></i>
+    <span>Inventory</span>
+  </div>
+  <div class="bn-item" id="bn-settings" data-perm="settings" onclick="navigate('settings')">
     <i class="fa fa-gear"></i>
     <span>Settings</span>
   </div>
@@ -1129,7 +1430,9 @@ function navigate(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-'  + page).classList.add('active');
   if (page === 'dashboard') updateDashboard();
-  if (page === 'settings') loadRecipients();
+  if (page === 'settings' && can('settings')) { loadRecipients(); loadUsers(); renderWarehousesAdmin(); }
+  if (page === 'orders') loadOrders();
+  if (page === 'inventory') loadProducts();
   closeSidebar();
   document.querySelectorAll('.bn-item').forEach(n => n.classList.remove('active'));
   const bn = document.getElementById('bn-' + page);
@@ -1199,6 +1502,7 @@ function saveLocal() {
 
 // ── form helpers ──────────────────────────────────────────────────
 function openNewForm() {
+  if (document.getElementById('panel').classList.contains('open')) closePanel();
   selectedId = null;
   clearForm();
   document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
@@ -1213,7 +1517,8 @@ function openNewForm() {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (document.getElementById('form-card').classList.contains('open')) closeForm();
+  if (document.getElementById('auth').classList.contains('open')) return;
+  closeAllPanels();
 });
 
 function closeForm() {
@@ -1329,6 +1634,7 @@ async function updateRecord() {
       if (idx !== -1) allRows[idx] = data.record;
       saveLocal(); selectedId = null; closeForm(); renderTable(); updateDashboard();
       toast('Shipment updated!', 'success');
+      afterShipmentUpdate(data.record);
     } else {
       toast(data.error || 'Update failed.', 'error');
     }
@@ -1534,6 +1840,7 @@ function renderTable() {
 }
 
 function selectRow(id) {
+  if (document.getElementById('panel').classList.contains('open')) closePanel();
   selectedId = id;
   const r = allRows.find(x => x.id === id);
   if (!r) return;
@@ -1612,6 +1919,7 @@ async function updateDashboard() {
   animateCount('st-returned',  d.returned);
   renderStatusChart(d.transit, d.delivered, d.returned);
   renderMonthlyChart(d.monthly || []);
+  renderOps(d.modules);
 }
 
 function renderStatusChart(transit, delivered, returned) {
@@ -1707,8 +2015,566 @@ function toast(msg, type = 'success') {
   _toastTimer = setTimeout(() => el.classList.remove('show'), 3400);
 }
 
+// ══════════════  USERS · WAREHOUSES · INVENTORY · ORDERS  ══════════════
+let ME = null;
+let WH = [];
+let PRODUCTS = [];
+let ORDERS = [];
+const ROLE_LABEL = {admin:'Admin', requester:'Requester', warehouse:'Warehouse', logistics:'Logistics'};
+const can = p => !!(ME && ME.perms.includes(p));
+const H = escHtml;
+const fmtN = v => Number(v || 0).toLocaleString('en-US');
+const fmtDate = v => v ? String(v).slice(0, 10) : '—';
+
+// any API call that comes back 401 sends the user to the sign-in screen
+const _rawFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const res = await _rawFetch(...args);
+  const url = String(args[0] && args[0].url || args[0]);
+  if (res.status === 401 && url.startsWith('/api/') && !url.startsWith('/api/auth/') && ME) {
+    ME = null; showAuth('login', '', 'Your session ended. Please sign in again.');
+  }
+  return res;
+};
+async function api(url, opts = {}) {
+  const o = Object.assign({}, opts);
+  if (o.json !== undefined) { o.method = o.method || 'POST'; o.headers = {'Content-Type': 'application/json'}; o.body = JSON.stringify(o.json); delete o.json; }
+  const res = await fetch(url, o);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) throw new Error(data.error || 'Something went wrong. Please try again.');
+  return data;
+}
+
+// ── sign in ──────────────────────────────────────────────────────
+let authMode = 'login', authToken = '';
+function showAuth(mode, email = '', msg = '') {
+  authMode = mode;
+  const $ = id => document.getElementById(id);
+  const cfg = {
+    login:  ['Sign in', 'Use your work email and password.', 'Sign in', 'Forgot password?'],
+    forgot: ['Reset password', 'Enter your email and we’ll send you a link to choose a new password.', 'Send reset link', 'Back to sign in'],
+    setup:  ['Create the admin account', 'First-time setup. This account will manage users, warehouses and settings.', 'Create account', ''],
+    set:    ['Set your password', 'Choose a password with at least 8 characters.', 'Save password and sign in', 'Back to sign in'],
+  }[mode];
+  $('auth-title').textContent = cfg[0];
+  $('auth-sub').textContent = cfg[1];
+  $('auth-btn').textContent = cfg[2];
+  $('auth-alt').textContent = cfg[3];
+  $('auth-alt').style.display = cfg[3] ? '' : 'none';
+  $('auth-name-wrap').style.display = mode === 'setup' ? '' : 'none';
+  $('auth-pw-wrap').style.display = mode === 'forgot' ? 'none' : '';
+  $('auth-pw2-wrap').style.display = (mode === 'setup' || mode === 'set') ? '' : 'none';
+  $('auth-pw').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  $('auth-email').readOnly = mode === 'set' || mode === 'setup';
+  if (email !== undefined) $('auth-email').value = email;
+  $('auth-pw').value = ''; $('auth-pw2').value = '';
+  $('auth-err').className = 'auth-err';
+  $('auth-err').textContent = msg;
+  $('auth').classList.add('open');
+  setTimeout(() => ($('auth-email').value && mode !== 'forgot' ? $('auth-pw') : $('auth-email')).focus(), 50);
+}
+function authAlt() {
+  if (authMode === 'login') showAuth('forgot', document.getElementById('auth-email').value);
+  else { history.replaceState(null, '', location.pathname); showAuth('login', document.getElementById('auth-email').value); }
+}
+async function authSubmit() {
+  const $ = id => document.getElementById(id);
+  const email = $('auth-email').value.trim(), pw = $('auth-pw').value, pw2 = $('auth-pw2').value;
+  const err = $('auth-err'); err.className = 'auth-err'; err.textContent = '';
+  if (!email) { err.textContent = 'Enter your email.'; return; }
+  if (authMode !== 'forgot' && !pw) { err.textContent = 'Enter a password.'; return; }
+  if ((authMode === 'setup' || authMode === 'set') && pw !== pw2) { err.textContent = 'The passwords don’t match.'; return; }
+  const btn = $('auth-btn'); btn.disabled = true;
+  try {
+    if (authMode === 'forgot') {
+      const d = await api('/api/auth/forgot', {json: {email}});
+      err.className = 'auth-ok';
+      err.textContent = d.emailEnabled ? 'If that email has an account, a reset link is on its way.' : 'Email isn’t set up here. Ask an admin to send you a reset link from Settings → Users.';
+      return;
+    }
+    const url = {login: '/api/auth/login', setup: '/api/auth/setup', set: '/api/auth/set-password'}[authMode];
+    const body = authMode === 'set' ? {token: authToken, password: pw} : {email, password: pw, name: $('auth-name').value.trim()};
+    const d = await api(url, {json: body});
+    history.replaceState(null, '', location.pathname);
+    startApp(d.user);
+  } catch (e) { err.className = 'auth-err'; err.textContent = e.message; }
+  finally { btn.disabled = false; }
+}
+async function boot() {
+  const qs = new URLSearchParams(location.search);
+  const tok = qs.get('invite') || qs.get('reset');
+  if (tok) {
+    try {
+      const r = await _rawFetch('/api/auth/token-info?token=' + encodeURIComponent(tok));
+      const d = await r.json();
+      if (d.valid) { authToken = tok; showAuth('set', d.email); return; }
+    } catch {}
+    history.replaceState(null, '', location.pathname);
+    showAuth('login', '', 'That link has expired or was already used. Ask an admin for a new one.');
+    return;
+  }
+  try {
+    const r = await _rawFetch('/api/auth/me', {cache: 'no-store'});
+    const d = await r.json();
+    if (d.user) return startApp(d.user);
+    if (d.setup) return showAuth('setup', d.setup_email || '');
+  } catch {}
+  showAuth('login');
+}
+function startApp(user) {
+  ME = user;
+  document.getElementById('auth').classList.remove('open');
+  document.getElementById('me-name').textContent = user.name;
+  document.getElementById('me-role').textContent = ROLE_LABEL[user.role] || user.role;
+  document.getElementById('me-avatar').textContent = (user.name || user.email).charAt(0).toUpperCase();
+  applyPerms();
+  loadWarehouses();
+  loadData();
+  const active = document.querySelector('.page.active');
+  if (active && active.id === 'page-settings' && !can('settings')) navigate('dashboard');
+  else if (active) navigate(active.id.replace('page-', ''));
+}
+function applyPerms() {
+  document.querySelectorAll('[data-perm]').forEach(el => { el.style.display = can(el.dataset.perm) ? '' : 'none'; });
+}
+async function logout() {
+  try { await _rawFetch('/api/auth/logout', {method: 'POST'}); } catch {}
+  try { localStorage.removeItem('lp_v1'); } catch {}
+  location.href = location.pathname;
+}
+
+// ── shared panel ─────────────────────────────────────────────────
+function openPanel(title, sub, html) {
+  document.getElementById('panel-title').textContent = title;
+  document.getElementById('panel-sub').textContent = sub || '';
+  document.getElementById('panel-body').innerHTML = html;
+  if (document.getElementById('form-card').classList.contains('open')) closeForm();
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('form-overlay').classList.add('open');
+  const first = document.querySelector('#panel-body input:not([type=hidden]), #panel-body select');
+  if (first && window.innerWidth > 900) setTimeout(() => first.focus(), 60);
+}
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  if (!document.getElementById('form-card').classList.contains('open'))
+    document.getElementById('form-overlay').classList.remove('open');
+}
+function closeAllPanels() {
+  if (document.getElementById('panel').classList.contains('open')) closePanel();
+  if (document.getElementById('form-card').classList.contains('open')) closeForm();
+}
+const val = id => (document.getElementById(id) || {}).value;
+async function busy(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { await fn(); } catch (e) { toast(e.message, 'error'); } finally { if (btn) btn.disabled = false; }
+}
+
+// ── warehouses ───────────────────────────────────────────────────
+async function loadWarehouses() {
+  try { WH = await (await fetch('/api/warehouses', {cache: 'no-store'})).json(); } catch { WH = []; }
+  if (!Array.isArray(WH)) WH = [];
+  const sel = document.getElementById('inv-wh'), cur = sel.value;
+  sel.innerHTML = '<option value="">All warehouses</option>' + WH.filter(w => w.active).map(w => `<option value="${w.id}">${H(w.name)}</option>`).join('');
+  sel.value = cur;
+  if (document.getElementById('page-settings').classList.contains('active')) renderWarehousesAdmin();
+}
+const whOptions = (sel, placeholder = 'Choose warehouse') =>
+  `<option value="">${placeholder}</option>` + WH.filter(w => w.active).map(w => `<option value="${w.id}" ${String(sel) === String(w.id) ? 'selected' : ''}>${H(w.name)}</option>`).join('');
+function renderWarehousesAdmin() {
+  const list = document.getElementById('whs-list');
+  document.getElementById('whs-count').textContent = WH.filter(w => w.active).length + ' active';
+  list.innerHTML = WH.length ? WH.map(w => `
+    <div class="u-row ${w.active ? '' : 'inactive'}">
+      <div class="who"><b>${H(w.name)}</b><small>${H([w.address, w.manager && 'Responsible: ' + w.manager].filter(Boolean).join(' · ') || 'No address')}</small></div>
+      <span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span>
+      <div class="acts"><button onclick="editWarehouse(${w.id})">Edit</button>
+        <button onclick="toggleWarehouse(${w.id})">${w.active ? 'Deactivate' : 'Activate'}</button></div>
+    </div>`).join('') : '<div class="u-row"><span class="set-count">No warehouses yet. Add your first one above.</span></div>';
+}
+async function addWarehouse() {
+  const name = val('whs-name').trim();
+  if (!name) { toast('Enter a warehouse name.', 'error'); document.getElementById('whs-name').focus(); return; }
+  await busy(document.getElementById('whs-add-btn'), async () => {
+    await api('/api/warehouses', {json: {name, address: val('whs-address'), manager: val('whs-manager')}});
+    ['whs-name', 'whs-address', 'whs-manager'].forEach(id => document.getElementById(id).value = '');
+    toast('Warehouse added.'); await loadWarehouses(); renderWarehousesAdmin();
+  });
+}
+function editWarehouse(id) {
+  const w = WH.find(x => x.id === id); if (!w) return;
+  openPanel('Edit warehouse', w.name, `
+    <div class="pf"><label for="ew-name">Name</label><input id="ew-name" value="${H(w.name)}"></div>
+    <div class="pf"><label for="ew-address">Address / city</label><input id="ew-address" value="${H(w.address || '')}"></div>
+    <div class="pf"><label for="ew-manager">Responsible person</label><input id="ew-manager" value="${H(w.manager || '')}"></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveWarehouse(${id}, this)"><i class="fa fa-floppy-disk"></i> Save</button></div>`);
+}
+async function saveWarehouse(id, btn) {
+  const w = WH.find(x => x.id === id);
+  await busy(btn, async () => {
+    await api('/api/warehouses/' + id, {method: 'PUT', json: {name: val('ew-name'), address: val('ew-address'), manager: val('ew-manager'), active: !!w.active}});
+    closePanel(); toast('Warehouse updated.'); await loadWarehouses(); renderWarehousesAdmin();
+  });
+}
+async function toggleWarehouse(id) {
+  const w = WH.find(x => x.id === id); if (!w) return;
+  if (w.active && !confirm('Deactivate ' + w.name + '? It won’t be available for new orders or stock moves.')) return;
+  await busy(null, async () => {
+    await api('/api/warehouses/' + id, {method: 'PUT', json: {name: w.name, address: w.address, manager: w.manager, active: !w.active}});
+    toast(w.active ? 'Warehouse deactivated.' : 'Warehouse activated.'); await loadWarehouses(); renderWarehousesAdmin();
+  });
+}
+
+// ── users ────────────────────────────────────────────────────────
+let USERS = [];
+async function loadUsers() {
+  try { USERS = await api('/api/users'); } catch (e) { USERS = []; }
+  renderUsers();
+}
+function renderUsers() {
+  document.getElementById('usr-count').textContent = USERS.filter(u => u.active).length + ' active';
+  document.getElementById('usr-list').innerHTML = USERS.map(u => `
+    <div class="u-row ${u.active ? '' : 'inactive'}">
+      <div class="who"><b>${H(u.name)}${u.id === ME.id ? ' (you)' : ''}</b>
+        <small>${H(u.email)} · ${u.active ? (u.has_password ? (u.last_login ? 'Last sign-in ' + fmtDate(u.last_login) : 'Active') : 'Invite pending') : 'Deactivated'}</small></div>
+      <select aria-label="Role for ${H(u.email)}" onchange="setUserRole(${u.id}, this)" ${u.id === ME.id ? 'disabled' : ''}>
+        ${Object.keys(ROLE_LABEL).map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+      </select>
+      <div class="acts">
+        <button onclick="userLink(${u.id})" title="${u.has_password ? 'Create a password reset link' : 'Create a new invite link'}">${u.has_password ? 'Reset link' : 'Invite link'}</button>
+        ${u.id === ME.id ? '' : `<button onclick="toggleUser(${u.id})">${u.active ? 'Deactivate' : 'Activate'}</button>`}
+      </div>
+    </div>`).join('') || '<div class="u-row"><span class="set-count">No users.</span></div>';
+}
+function showLink(link, emailed, what) {
+  document.getElementById('usr-link').innerHTML = `
+    <p class="set-help" style="margin:14px 0 0">${emailed ? 'We emailed the ' + what + ' link. You can also copy it:' : 'Email isn’t set up here, so send this ' + what + ' link to the person yourself. It works once.'}</p>
+    <div class="link-box"><input readonly value="${H(link)}" aria-label="${what} link" onclick="this.select()">
+      <button class="tbl-reset" onclick="copyText('${H(link)}')"><i class="fa fa-copy"></i> Copy</button></div>`;
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); toast('Link copied.'); }
+  catch { toast('Select the link and copy it manually.', 'error'); }
+}
+async function inviteUser() {
+  const email = val('usr-email').trim();
+  if (!email) { toast('Enter an email address.', 'error'); document.getElementById('usr-email').focus(); return; }
+  await busy(document.getElementById('usr-add-btn'), async () => {
+    const d = await api('/api/users', {json: {email, name: val('usr-name'), role: val('usr-role')}});
+    document.getElementById('usr-email').value = ''; document.getElementById('usr-name').value = '';
+    toast('Invited ' + d.user.email + '.'); showLink(d.link, d.emailed, 'invite'); loadUsers();
+  });
+}
+async function setUserRole(id, sel) {
+  const u = USERS.find(x => x.id === id);
+  try { await api('/api/users/' + id, {method: 'PUT', json: {role: sel.value, active: u.active, name: u.name}}); toast('Role changed to ' + ROLE_LABEL[sel.value] + '.'); loadUsers(); }
+  catch (e) { toast(e.message, 'error'); sel.value = u.role; }
+}
+async function toggleUser(id) {
+  const u = USERS.find(x => x.id === id);
+  if (u.active && !confirm('Deactivate ' + u.email + '? They’ll be signed out and can’t sign in.')) return;
+  await busy(null, async () => { await api('/api/users/' + id, {method: 'PUT', json: {role: u.role, active: !u.active, name: u.name}}); toast(u.active ? 'User deactivated.' : 'User activated.'); loadUsers(); });
+}
+async function userLink(id) {
+  await busy(null, async () => { const d = await api('/api/users/' + id + '/link', {method: 'POST'}); showLink(d.link, d.emailed, d.purpose === 'invite' ? 'invite' : 'reset'); });
+}
+
+// ── inventory ────────────────────────────────────────────────────
+function stockState(p) {
+  if (p.available <= 0 && p.on_hand <= 0) return ['out', 'Out of stock'];
+  if (p.min_qty && p.on_hand < p.min_qty) return ['low', 'Low stock'];
+  return ['ok', 'In stock'];
+}
+async function loadProducts() {
+  const wid = val('inv-wh');
+  try { PRODUCTS = await api('/api/products' + (wid ? '?warehouse_id=' + wid : '')); } catch (e) { PRODUCTS = []; toast(e.message, 'error'); }
+  renderProducts();
+}
+function renderProducts() {
+  const q = (val('inv-search') || '').toLowerCase(), f = val('inv-filter');
+  const rows = PRODUCTS.filter(p => p.active || q).filter(p => !q || (p.sku + ' ' + p.name + ' ' + (p.category || '')).toLowerCase().includes(q))
+    .filter(p => !f || stockState(p)[0] === f);
+  document.getElementById('inv-count').textContent = rows.length + ' product' + (rows.length !== 1 ? 's' : '');
+  document.getElementById('inv-body').innerHTML = rows.length ? rows.map(p => {
+    const [k, l] = stockState(p);
+    return `<tr onclick="openProduct(${p.id})"><td><b>${H(p.sku)}</b></td><td>${H(p.name)}${p.active ? '' : ' <span class="badge badge-muted">Inactive</span>'}</td><td>${H(p.category || '—')}</td>
+      <td class="num">${fmtN(p.on_hand)}</td><td class="num">${fmtN(p.reserved)}</td><td class="num"><b>${fmtN(p.available)}</b></td>
+      <td class="num">${fmtN(p.min_qty)}</td><td><span class="badge badge-${k}">${l}</span></td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="8">${PRODUCTS.length ? 'No products match.' : (can('products.manage') ? 'No products yet. Click “Add product” to add your first one with its current stock.' : 'No products yet.')}</td></tr>`;
+}
+function goLowStock() { navigate('inventory'); document.getElementById('inv-filter').value = 'low'; renderProducts(); }
+async function openProduct(id) {
+  let p = PRODUCTS.find(x => x.id === id);
+  const all = await api('/api/products').catch(() => PRODUCTS);
+  p = all.find(x => x.id === id) || p;
+  const [k, l] = stockState(p);
+  openPanel(p.name, p.sku + (p.category ? ' · ' + p.category : ''), `
+    <span class="badge badge-${k}">${l}</span>
+    <dl class="kv" style="margin-top:14px"><dt>Unit</dt><dd>${H(p.unit || 'pcs')}</dd><dt>Minimum level</dt><dd>${fmtN(p.min_qty)}</dd>
+      <dt>Unit value</dt><dd>AED ${Number(p.unit_value || 0).toFixed(2)}</dd><dt>Stock value</dt><dd>AED ${fmtN(Math.round(p.on_hand * (p.unit_value || 0)))}</dd></dl>
+    <div class="p-sec"><i class="fa fa-warehouse"></i> Stock by warehouse</div>
+    ${p.by_warehouse.length ? `<table class="mini"><thead><tr><th>Warehouse</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
+      ${p.by_warehouse.map(b => `<tr><td>${H(b.warehouse)}</td><td class="num">${fmtN(b.on_hand)}</td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>`).join('')}
+    </tbody></table>` : '<p class="pf-hint">No stock recorded yet.</p>'}
+    <div class="p-actions">
+      ${can('stock.adjust') ? `<button class="pbtn" onclick="openAdjust(${p.id})"><i class="fa fa-sliders"></i> Adjust</button><button class="pbtn" onclick="openTransfer(${p.id})"><i class="fa fa-right-left"></i> Transfer</button>` : ''}
+      ${can('products.manage') ? `<button class="pbtn" onclick="openProductForm(${p.id})"><i class="fa fa-pen"></i> Edit product</button>` : ''}
+    </div>
+    <div class="p-sec"><i class="fa fa-clock-rotate-left"></i> Movement history</div>
+    <ul class="hist" id="mv-list"><li><span class="pf-hint">Loading…</span></li></ul>`);
+  try {
+    const mv = await api('/api/products/' + id + '/movements');
+    document.getElementById('mv-list').innerHTML = mv.length ? mv.map(m => `<li><div>${H(m.reason || m.type)}${m.note ? ' – ' + H(m.note) : ''}
+      <small>${H(m.warehouse || '')} · ${fmtDate(m.created_at)}${m.user_name ? ' · ' + H(m.user_name) : ''}${m.order_id ? ' · PL-' + String(m.order_id).padStart(4, '0') : ''}</small></div>
+      <span class="q ${m.qty > 0 ? 'pos' : 'neg'}">${m.qty > 0 ? '+' : ''}${fmtN(m.qty)}</span></li>`).join('') : '<li><span class="pf-hint">No movements yet.</span></li>';
+  } catch {}
+}
+function openProductForm(id) {
+  const p = id ? PRODUCTS.find(x => x.id === id) : null;
+  if (!p && !WH.some(w => w.active)) { toast('Add a warehouse first in Settings → Warehouses.', 'error'); return; }
+  openPanel(p ? 'Edit product' : 'Add product', p ? p.sku : 'Enter the product and how many you have now', `
+    <div class="pf-row"><div class="pf"><label for="pp-sku">SKU / code</label><input id="pp-sku" value="${H(p ? p.sku : '')}" placeholder="e.g. WC-HUB-01"></div>
+      <div class="pf"><label for="pp-unit">Unit</label><input id="pp-unit" value="${H(p ? p.unit : 'pcs')}"></div></div>
+    <div class="pf"><label for="pp-name">Product name</label><input id="pp-name" value="${H(p ? p.name : '')}"></div>
+    <div class="pf"><label for="pp-cat">Category</label><input id="pp-cat" value="${H(p ? p.category || '' : '')}" placeholder="e.g. Devices, Accessories"></div>
+    <div class="pf-row"><div class="pf"><label for="pp-min">Minimum level</label><input id="pp-min" type="number" min="0" value="${p ? p.min_qty : 0}"></div>
+      <div class="pf"><label for="pp-val">Unit value (AED)</label><input id="pp-val" type="number" min="0" step="0.01" value="${p ? p.unit_value : 0}"></div></div>
+    ${p ? `<div class="pf"><label for="pp-active">Status</label><select id="pp-active"><option value="1" ${p.active ? 'selected' : ''}>Active</option><option value="0" ${p.active ? '' : 'selected'}>Inactive (hidden from new orders)</option></select></div>`
+      : `<div class="p-sec"><i class="fa fa-cubes"></i> Opening stock (current quantity)</div>
+         ${WH.filter(w => w.active).map(w => `<div class="pf-row" style="align-items:center"><label for="pp-o-${w.id}" style="font-size:13px">${H(w.name)}</label>
+           <input id="pp-o-${w.id}" class="pp-open" data-wh="${w.id}" type="number" min="0" value="0" style="height:40px;border:1.5px solid var(--border);border-radius:9px;padding:0 10px;font:inherit"></div>`).join('')}
+         <p class="pf-hint">Recorded once as the starting balance. Later changes go through Adjust stock.</p>`}
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveProduct(${p ? p.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${p ? 'Save changes' : 'Add product'}</button></div>`);
+}
+async function saveProduct(id, btn) {
+  const body = {sku: val('pp-sku'), name: val('pp-name'), unit: val('pp-unit'), category: val('pp-cat'), min_qty: val('pp-min'), unit_value: val('pp-val')};
+  if (!body.sku.trim() || !body.name.trim()) { toast('SKU and product name are required.', 'error'); return; }
+  if (id) body.active = val('pp-active') === '1';
+  else body.opening = [...document.querySelectorAll('.pp-open')].map(i => ({warehouse_id: i.dataset.wh, qty: i.value}));
+  await busy(btn, async () => {
+    await api('/api/products' + (id ? '/' + id : ''), {method: id ? 'PUT' : 'POST', json: body});
+    closePanel(); toast(id ? 'Product updated.' : 'Product added.'); loadProducts();
+  });
+}
+function productOptions(sel) {
+  return '<option value="">Choose product</option>' + PRODUCTS.filter(p => p.active).map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${H(p.sku)} – ${H(p.name)}</option>`).join('');
+}
+async function ensureProducts() { if (!PRODUCTS.length || val('inv-wh')) { try { PRODUCTS = await api('/api/products'); } catch {} } }
+async function openAdjust(pid) {
+  await ensureProducts();
+  if (!PRODUCTS.length) { toast('Add a product first.', 'error'); return; }
+  openPanel('Adjust stock', 'Recount, damage, or new stock received', `
+    <div class="pf"><label for="aj-p">Product</label><select id="aj-p">${productOptions(pid)}</select></div>
+    <div class="pf"><label for="aj-w">Warehouse</label><select id="aj-w">${whOptions(val('inv-wh'))}</select></div>
+    <div class="pf-row"><div class="pf"><label for="aj-dir">Change</label><select id="aj-dir"><option value="1">Add (+)</option><option value="-1">Remove (−)</option></select></div>
+      <div class="pf"><label for="aj-q">Quantity</label><input id="aj-q" type="number" min="1" value="1"></div></div>
+    <div class="pf"><label for="aj-r">Reason</label><select id="aj-r"><option>New stock received</option><option>Stock count correction</option><option>Damaged</option><option>Lost</option><option>Other</option></select></div>
+    <div class="pf"><label for="aj-n">Note (optional)</label><input id="aj-n" placeholder="e.g. PO number, count sheet"></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="saveAdjust(this)"><i class="fa fa-check"></i> Save adjustment</button></div>`);
+}
+async function saveAdjust(btn) {
+  const q = parseInt(val('aj-q'), 10);
+  if (!val('aj-p') || !val('aj-w') || !(q > 0)) { toast('Choose a product, a warehouse and a quantity above zero.', 'error'); return; }
+  await busy(btn, async () => {
+    await api('/api/stock/adjust', {json: {product_id: val('aj-p'), warehouse_id: val('aj-w'), qty: q * parseInt(val('aj-dir'), 10), reason: val('aj-r'), note: val('aj-n')}});
+    closePanel(); toast('Stock adjusted.'); loadProducts();
+  });
+}
+async function openTransfer(pid) {
+  await ensureProducts();
+  if (WH.filter(w => w.active).length < 2) { toast('You need at least two warehouses to transfer stock.', 'error'); return; }
+  openPanel('Transfer stock', 'Move stock between warehouses', `
+    <div class="pf"><label for="tr-p">Product</label><select id="tr-p">${productOptions(pid)}</select></div>
+    <div class="pf"><label for="tr-f">From</label><select id="tr-f">${whOptions('')}</select></div>
+    <div class="pf"><label for="tr-t">To</label><select id="tr-t">${whOptions('')}</select></div>
+    <div class="pf"><label for="tr-q">Quantity</label><input id="tr-q" type="number" min="1" value="1"></div>
+    <div class="pf"><label for="tr-n">Note (optional)</label><input id="tr-n"></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="saveTransfer(this)"><i class="fa fa-right-left"></i> Transfer</button></div>`);
+}
+async function saveTransfer(btn) {
+  const q = parseInt(val('tr-q'), 10);
+  if (!val('tr-p') || !val('tr-f') || !val('tr-t') || !(q > 0)) { toast('Fill in product, both warehouses and quantity.', 'error'); return; }
+  if (val('tr-f') === val('tr-t')) { toast('Choose two different warehouses.', 'error'); return; }
+  await busy(btn, async () => {
+    await api('/api/stock/transfer', {json: {product_id: val('tr-p'), from_id: val('tr-f'), to_id: val('tr-t'), qty: q, note: val('tr-n')}});
+    closePanel(); toast('Stock transferred.'); loadProducts();
+  });
+}
+
+// ── orders ───────────────────────────────────────────────────────
+async function loadOrders() {
+  try { ORDERS = await api('/api/orders'); } catch (e) { ORDERS = []; toast(e.message, 'error'); }
+  renderOrders();
+}
+function goOrders(status) { navigate('orders'); document.getElementById('ord-filter').value = status; renderOrders(); }
+function renderOrders() {
+  const f = val('ord-filter'), q = (val('ord-search') || '').toLowerCase();
+  const rows = ORDERS.filter(o => f === 'open' ? ['pick_list', 'picked', 'packed'].includes(o.status) : (!f || o.status === f))
+    .filter(o => !q || (o.number + ' ' + (o.destination || '') + ' ' + (o.awb_no || '') + ' ' + (o.requester || '')).toLowerCase().includes(q));
+  document.getElementById('ord-count').textContent = rows.length + ' order' + (rows.length !== 1 ? 's' : '');
+  document.getElementById('ord-body').innerHTML = rows.length ? rows.map(o => `
+    <tr onclick="openOrder(${o.id})"><td><b>${o.number}</b>${o.urgency === 'Urgent' ? ' <span class="badge badge-urgent">Urgent</span>' : ''}</td>
+      <td>${fmtDate(o.created_at)}</td><td>${H(o.warehouse || '')}</td><td>${H(o.destination || '')}</td>
+      <td class="num">${fmtN(o.units)}</td><td>${H(o.requester || '')}</td><td><span class="badge badge-${o.status}">${o.status_label}</span></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="7">${ORDERS.length ? 'No orders in this view.' : (can('orders.create') ? 'No orders yet. Click “New pick list” to request items.' : 'No orders yet.')}</td></tr>`;
+}
+async function openNewOrder() {
+  if (!WH.some(w => w.active)) { toast('No warehouses yet. An admin needs to add one in Settings.', 'error'); return; }
+  try { PRODUCTS = await api('/api/products'); } catch {}
+  if (!PRODUCTS.some(p => p.active)) { toast('No products in inventory yet.', 'error'); return; }
+  const def = ME.warehouse_id || (WH.find(w => w.active) || {}).id;
+  openPanel('New pick list', 'Request items to be picked and shipped', `
+    <div class="pf"><label for="no-w">Pick from warehouse</label><select id="no-w" onchange="refreshLines()">${whOptions(def)}</select></div>
+    <div class="pf"><label for="no-d">Destination</label><input id="no-d" placeholder="Site, client or address"></div>
+    <div class="pf-row"><div class="pf"><label for="no-c">Receiver contact</label><input id="no-c" placeholder="Name and phone"></div>
+      <div class="pf"><label for="no-u">Urgency</label><select id="no-u"><option>Normal</option><option>Urgent</option></select></div></div>
+    <div class="p-sec"><i class="fa fa-cubes"></i> Items</div>
+    <div id="no-lines"></div>
+    <button class="pbtn" style="width:100%" onclick="addLine()"><i class="fa fa-plus"></i> Add item</button>
+    <div class="pf" style="margin-top:12px"><label for="no-n">Notes (optional)</label><textarea id="no-n"></textarea></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="submitOrder(this)"><i class="fa fa-paper-plane"></i> Create pick list</button></div>`);
+  addLine();
+}
+function availAt(p, wid) { const b = (p.by_warehouse || []).find(x => String(x.warehouse_id) === String(wid)); return b ? b.available : 0; }
+function lineOptions(sel) {
+  const wid = val('no-w');
+  return '<option value="">Choose product</option>' + PRODUCTS.filter(p => p.active).map(p => {
+    const a = availAt(p, wid);
+    return `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''} ${a <= 0 ? 'disabled' : ''}>${H(p.sku)} – ${H(p.name)} (${a} available)</option>`;
+  }).join('');
+}
+function addLine() {
+  const div = document.createElement('div');
+  div.className = 'line-row';
+  div.innerHTML = `<select class="nl-p" aria-label="Product">${lineOptions('')}</select><input class="nl-q" type="number" min="1" value="1" aria-label="Quantity">
+    <button class="icon-btn" aria-label="Remove item" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>`;
+  document.getElementById('no-lines').appendChild(div);
+}
+function refreshLines() { document.querySelectorAll('.nl-p').forEach(s => { const v = s.value; s.innerHTML = lineOptions(v); }); }
+async function submitOrder(btn) {
+  const items = [...document.querySelectorAll('.line-row')].map(r => ({product_id: r.querySelector('.nl-p').value, qty: parseInt(r.querySelector('.nl-q').value, 10)})).filter(i => i.product_id && i.qty > 0);
+  if (!val('no-w')) { toast('Choose a warehouse.', 'error'); return; }
+  if (!val('no-d').trim()) { toast('Enter the destination.', 'error'); document.getElementById('no-d').focus(); return; }
+  if (!items.length) { toast('Add at least one product with a quantity.', 'error'); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/orders', {json: {warehouse_id: val('no-w'), destination: val('no-d'), contact: val('no-c'), urgency: val('no-u'), notes: val('no-n'), items}});
+    closePanel(); toast('Pick list ' + d.order.number + ' created. Stock reserved.'); goOrders('open'); loadOrders(); updateDashboard();
+  });
+}
+function stepsBar(status) {
+  const order = ['pick_list', 'picked', 'packed', 'shipped'];
+  const i = order.indexOf(status);
+  return '<div class="steps" aria-hidden="true">' + order.map((_, n) => `<span class="${status === 'cancelled' ? 'x' : (n <= i ? 'on' : '')}"></span>`).join('') + '</div>';
+}
+async function openOrder(id) {
+  let o;
+  try { o = await api('/api/orders/' + id); } catch (e) { toast(e.message, 'error'); return; }
+  const itemsTable = (editable) => `<table class="mini"><thead><tr><th>Item</th><th class="num">Requested</th><th class="num">${editable ? 'Picked' : (o.status === 'pick_list' || o.status === 'cancelled' ? '' : 'Picked')}</th></tr></thead><tbody>
+    ${o.items.map(i => `<tr><td>${H(i.name)}<span class="sub">${H(i.sku)}</span></td><td class="num">${fmtN(i.qty_requested)} ${H(i.unit || '')}</td>
+      <td class="num">${editable ? `<input type="number" class="pk-q" data-item="${i.id}" min="0" max="${i.qty_requested}" value="${i.qty_requested}" aria-label="Picked quantity for ${H(i.name)}">` : (i.qty_picked != null ? fmtN(i.qty_picked) : '')}</td></tr>`).join('')}
+  </tbody></table>`;
+  let action = '';
+  if (o.status === 'pick_list' && can('orders.process'))
+    action = `<div class="p-sec"><i class="fa fa-hand"></i> Pick items</div><p class="pf-hint">Collect the items and confirm what you picked. Lower the number if something is short.</p>
+      <div class="p-actions"><button class="pbtn primary" onclick="confirmPick(${o.id}, this)"><i class="fa fa-check"></i> Confirm picked</button></div>`;
+  else if (o.status === 'picked' && can('orders.process'))
+    action = `<div class="p-sec"><i class="fa fa-box-open"></i> Pack</div>
+      <div class="pf-row"><div class="pf"><label for="pk-b">Boxes</label><input id="pk-b" type="number" min="1" value="1"></div>
+        <div class="pf"><label for="pk-w">Total weight (kg)</label><input id="pk-w" type="number" min="0" step="0.1"></div></div>
+      <div class="pf"><label for="pk-d">Dimensions (optional)</label><input id="pk-d" placeholder="e.g. 40×30×30 cm"></div>
+      <div class="p-actions"><button class="pbtn" onclick="printPackingList(${o.id})"><i class="fa fa-print"></i> Packing list</button>
+        <button class="pbtn primary" onclick="confirmPack(${o.id}, this)"><i class="fa fa-box"></i> Mark as packed</button></div>`;
+  else if (o.status === 'packed' && can('orders.ship'))
+    action = `<div class="p-sec"><i class="fa fa-truck-fast"></i> Create shipment</div>
+      <div class="pf"><label for="sh-a">AWB No.</label><input id="sh-a" placeholder="Courier tracking number"></div>
+      <div class="pf-row"><div class="pf"><label for="sh-c">Cost (AED)</label><input id="sh-c" type="number" min="0" step="0.01"></div>
+        <div class="pf"><label for="sh-d">Ship date</label><input id="sh-d" type="date" value="${new Date().toISOString().slice(0, 10)}"></div></div>
+      <div class="p-actions"><button class="pbtn" onclick="printPackingList(${o.id})"><i class="fa fa-print"></i> Packing list</button>
+        <button class="pbtn success" onclick="confirmShip(${o.id}, this)"><i class="fa fa-truck-fast"></i> Create shipment</button></div>`;
+  else if (o.status === 'shipped' && o.shipment_status === 'Returned' && !o.return_action && can('returns.receive'))
+    action = `<div class="p-sec"><i class="fa fa-rotate-left"></i> Shipment returned</div><p class="pf-hint">Put the items back into stock, or record them as scrapped.</p>
+      <div class="p-actions"><button class="pbtn" onclick="receiveReturn(${o.id}, 'scrap', this)"><i class="fa fa-trash-can"></i> Scrap</button>
+        <button class="pbtn success" onclick="receiveReturn(${o.id}, 'restock', this)"><i class="fa fa-box-archive"></i> Restock</button></div>`;
+  const canCancel = ['pick_list', 'picked', 'packed'].includes(o.status) && can('orders.cancel') &&
+    (ME.role !== 'requester' || (o.requester_id === ME.id && o.status === 'pick_list'));
+  openPanel(o.number + ' · ' + o.status_label, o.warehouse + ' → ' + o.destination, `
+    ${stepsBar(o.status)}
+    <dl class="kv"><dt>Status</dt><dd><span class="badge badge-${o.status}">${o.status_label}</span>${o.urgency === 'Urgent' ? ' <span class="badge badge-urgent">Urgent</span>' : ''}</dd>
+      <dt>Requested by</dt><dd>${H(o.requester || '—')} · ${fmtDate(o.created_at)}</dd>
+      <dt>Destination</dt><dd>${H(o.destination)}</dd>${o.contact ? `<dt>Contact</dt><dd>${H(o.contact)}</dd>` : ''}
+      ${o.notes ? `<dt>Notes</dt><dd>${H(o.notes)}</dd>` : ''}
+      ${o.picked_by_name ? `<dt>Picked by</dt><dd>${H(o.picked_by_name)} · ${fmtDate(o.picked_at)}</dd>` : ''}
+      ${o.packed_by_name ? `<dt>Packed</dt><dd>${o.boxes} box${o.boxes !== 1 ? 'es' : ''}${o.weight ? ' · ' + o.weight + ' kg' : ''}${o.dimensions ? ' · ' + H(o.dimensions) : ''} (${H(o.packed_by_name)})</dd>` : ''}
+      ${o.awb_no ? `<dt>Shipment</dt><dd>AWB ${H(o.awb_no)} · ${H(o.shipment_status || '')}</dd>` : ''}
+      ${o.return_action ? `<dt>Return</dt><dd>${o.return_action === 'restock' ? 'Restocked' : 'Scrapped'}</dd>` : ''}
+      ${o.cancel_reason ? `<dt>Cancel reason</dt><dd>${H(o.cancel_reason)}</dd>` : ''}</dl>
+    <div class="p-sec"><i class="fa fa-cubes"></i> Items</div>
+    ${itemsTable(o.status === 'pick_list' && can('orders.process'))}
+    ${action}
+    ${canCancel ? `<div class="p-actions"><button class="pbtn danger" onclick="cancelOrder(${o.id}, this)"><i class="fa fa-ban"></i> Cancel order</button></div>` : ''}`);
+}
+async function orderAction(id, path, body, btn, msg) {
+  await busy(btn, async () => {
+    await api('/api/orders/' + id + '/' + path, {json: body});
+    toast(msg); await loadOrders(); updateDashboard(); openOrder(id);
+  });
+}
+function confirmPick(id, btn) {
+  const items = [...document.querySelectorAll('.pk-q')].map(i => ({item_id: i.dataset.item, qty_picked: parseInt(i.value, 10)}));
+  if (items.some(i => isNaN(i.qty_picked) || i.qty_picked < 0)) { toast('Enter a picked quantity for each item.', 'error'); return; }
+  orderAction(id, 'pick', {items}, btn, 'Picking confirmed. Ready to pack.');
+}
+function confirmPack(id, btn) {
+  if (!(parseInt(val('pk-b'), 10) >= 1)) { toast('Enter the number of boxes.', 'error'); return; }
+  orderAction(id, 'pack', {boxes: val('pk-b'), weight: val('pk-w'), dimensions: val('pk-d')}, btn, 'Packed. Logistics has been notified.');
+}
+function confirmShip(id, btn) {
+  if (!val('sh-a').trim()) { toast('Enter the AWB number.', 'error'); document.getElementById('sh-a').focus(); return; }
+  orderAction(id, 'ship', {awb_no: val('sh-a'), cost: val('sh-c'), date: val('sh-d')}, btn, 'Shipment created and stock deducted.').then(loadData);
+}
+function receiveReturn(id, action, btn) {
+  orderAction(id, 'return', {action}, btn, action === 'restock' ? 'Items returned to stock.' : 'Return recorded as scrapped.');
+}
+function cancelOrder(id, btn) {
+  const reason = prompt('Why is this order being cancelled? (optional)');
+  if (reason === null) return;
+  orderAction(id, 'cancel', {reason}, btn, 'Order cancelled. Reserved stock released.');
+}
+async function printPackingList(id) {
+  let o; try { o = await api('/api/orders/' + id); } catch (e) { toast(e.message, 'error'); return; }
+  document.getElementById('print-area').innerHTML = `<h1>Packing list ${o.number}</h1><div>Logistic Pro · printed ${new Date().toLocaleDateString('en-GB')}</div>
+    <div class="meta"><div><b>From:</b> ${H(o.warehouse)}</div><div><b>To:</b> ${H(o.destination)}</div>
+      <div><b>Contact:</b> ${H(o.contact || '—')}</div><div><b>Requested by:</b> ${H(o.requester || '—')}</div>
+      <div><b>Boxes:</b> ${o.boxes || '—'}</div><div><b>Weight:</b> ${o.weight ? o.weight + ' kg' : '—'}</div></div>
+    <table><thead><tr><th>#</th><th>SKU</th><th>Item</th><th>Qty</th><th>Checked</th></tr></thead><tbody>
+      ${o.items.map((i, n) => `<tr><td>${n + 1}</td><td>${H(i.sku)}</td><td>${H(i.name)}</td><td>${i.qty_picked != null ? i.qty_picked : i.qty_requested} ${H(i.unit || '')}</td><td></td></tr>`).join('')}
+    </tbody></table>${o.notes ? `<p><b>Notes:</b> ${H(o.notes)}</p>` : ''}`;
+  window.print();
+}
+
+// ── dashboard extras ─────────────────────────────────────────────
+function renderOps(m) {
+  if (!m) return;
+  animateCount('op-pick', m.to_pick); animateCount('op-pack', m.to_pack);
+  animateCount('op-ship', m.to_ship); animateCount('op-low', m.low_stock);
+}
+
+// returned shipment linked to an order → ask whether to restock
+async function afterShipmentUpdate(rec) {
+  if (!rec || !rec.order_id || rec.status !== 'Returned' || !can('returns.receive')) return;
+  try {
+    const o = await api('/api/orders/' + rec.order_id);
+    if (o.return_action) return;
+    if (confirm('This shipment came from ' + o.number + '. Put the returned items back into stock?\n\nOK = restock · Cancel = decide later in Orders')) {
+      await api('/api/orders/' + o.id + '/return', {json: {action: 'restock'}});
+      toast('Items returned to stock.');
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 // ── init ──────────────────────────────────────────────────────────
-loadData();
+boot();
 
 // ── service worker registration ───────────────────────────────────
 if ('serviceWorker' in navigator) {
