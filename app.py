@@ -104,6 +104,8 @@ def ensure_db():
 @app.before_request
 def before_request():
     ensure_db()
+    ensure_modules_db()
+    return _auth_gate()
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -141,6 +143,903 @@ def pg_run(conn, sql, params=()):
 def pg_one(conn, sql, params=()):
     rows = pg_rows(conn, sql, params)
     return rows[0] if rows else None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Users & roles · Warehouses · Inventory · Orders (pick & pack)
+# ══════════════════════════════════════════════════════════════════════════════
+import datetime as _dt
+import hashlib as _hashlib
+import re as _re
+import secrets as _secrets
+from functools import wraps as _wraps
+from flask import session, g
+from werkzeug.security import generate_password_hash, check_password_hash
+
+app.secret_key = os.environ.get('SECRET_KEY') or _hashlib.sha256(
+    ('logistic-pro-session:' + (DATABASE_URL or DB_PATH)).encode()).hexdigest()
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=IS_VERCEL,
+    PERMANENT_SESSION_LIFETIME=_dt.timedelta(hours=12),
+)
+BOOTSTRAP_ADMIN = os.environ.get('BOOTSTRAP_ADMIN', 'ehsan@wakecap.com').strip().lower()
+
+ROLES = ['admin', 'requester', 'warehouse', 'logistics']
+PERMS = {
+    'admin':     {'shipments.edit', 'shipments.delete', 'products.manage', 'stock.adjust',
+                  'orders.create', 'orders.process', 'orders.ship', 'orders.cancel',
+                  'returns.receive', 'settings'},
+    'requester': {'orders.create', 'orders.cancel'},
+    'warehouse': {'stock.adjust', 'orders.process', 'orders.cancel', 'returns.receive'},
+    'logistics': {'shipments.edit', 'orders.ship'},
+}
+ORDER_OPEN = ('pick_list', 'picked', 'packed')
+ORDER_LABEL = {'pick_list': 'To pick', 'picked': 'To pack', 'packed': 'Ready to ship',
+               'shipped': 'Shipped', 'cancelled': 'Cancelled'}
+
+
+def _now():
+    return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+
+
+class DB:
+    """One connection + transaction for a block of statements. SQL uses $1, $2 ... placeholders."""
+    def __enter__(self):
+        if USE_PG:
+            self.c = get_pg()
+            self.c.run('BEGIN')
+        else:
+            self.c = sqlite3.connect(DB_PATH)
+            self.c.row_factory = sqlite3.Row
+        return self
+
+    def __exit__(self, et, ev, tb):
+        try:
+            if USE_PG:
+                self.c.run('ROLLBACK' if et else 'COMMIT')
+            else:
+                (self.c.rollback if et else self.c.commit)()
+        finally:
+            self.c.close()
+        return False
+
+    def _lite(self, sql):
+        return _re.sub(r'\$\d+', '?', sql)
+
+    def rows(self, sql, p=()):
+        if USE_PG:
+            return pg_rows(self.c, sql, p)
+        return [dict(r) for r in self.c.execute(self._lite(sql), p).fetchall()]
+
+    def one(self, sql, p=()):
+        r = self.rows(sql, p)
+        return r[0] if r else None
+
+    def run(self, sql, p=()):
+        if USE_PG:
+            pg_run(self.c, sql, p)
+        else:
+            self.c.execute(self._lite(sql), p)
+
+    def insert(self, sql, p=()):
+        if USE_PG:
+            return pg_rows(self.c, sql + ' RETURNING id', p)[0]['id']
+        return self.c.execute(self._lite(sql), p).lastrowid
+
+
+_modules_ready = False
+
+
+def ensure_modules_db():
+    global _modules_ready
+    if _modules_ready:
+        return
+    pk = 'SERIAL PRIMARY KEY' if USE_PG else 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    tables = [
+        f'''CREATE TABLE IF NOT EXISTS users (id {pk}, email TEXT UNIQUE NOT NULL, name TEXT,
+            role TEXT NOT NULL, password_hash TEXT, active INTEGER DEFAULT 1, warehouse_id INTEGER,
+            failed_logins INTEGER DEFAULT 0, locked_until TEXT, last_login TEXT, created_at TEXT)''',
+        '''CREATE TABLE IF NOT EXISTS user_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER,
+            purpose TEXT, expires_at TEXT, used INTEGER DEFAULT 0)''',
+        f'''CREATE TABLE IF NOT EXISTS warehouses (id {pk}, name TEXT UNIQUE NOT NULL, address TEXT,
+            manager TEXT, active INTEGER DEFAULT 1, created_at TEXT)''',
+        f'''CREATE TABLE IF NOT EXISTS products (id {pk}, sku TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+            unit TEXT, category TEXT, min_qty INTEGER DEFAULT 0, unit_value REAL DEFAULT 0,
+            active INTEGER DEFAULT 1, created_at TEXT)''',
+        f'''CREATE TABLE IF NOT EXISTS stock_movements (id {pk}, product_id INTEGER NOT NULL,
+            warehouse_id INTEGER NOT NULL, qty INTEGER NOT NULL, type TEXT NOT NULL, reason TEXT,
+            note TEXT, order_id INTEGER, shipment_id INTEGER, user_id INTEGER, created_at TEXT)''',
+        f'''CREATE TABLE IF NOT EXISTS orders (id {pk}, warehouse_id INTEGER NOT NULL,
+            requester_id INTEGER, destination TEXT, contact TEXT, urgency TEXT, notes TEXT,
+            status TEXT NOT NULL, boxes INTEGER, weight REAL, dimensions TEXT,
+            picked_by INTEGER, picked_at TEXT, packed_by INTEGER, packed_at TEXT,
+            shipped_by INTEGER, shipped_at TEXT, shipment_id INTEGER, cancel_reason TEXT,
+            return_action TEXT, created_at TEXT, updated_at TEXT)''',
+        f'''CREATE TABLE IF NOT EXISTS order_items (id {pk}, order_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL, qty_requested INTEGER NOT NULL, qty_picked INTEGER)''',
+    ]
+    with DB() as db:
+        for t in tables:
+            db.run(t)
+        if USE_PG:
+            db.run('ALTER TABLE shipments ADD COLUMN IF NOT EXISTS order_id INTEGER')
+        else:
+            cols = [r['name'] for r in db.rows('PRAGMA table_info(shipments)')]
+            if 'order_id' not in cols:
+                db.run('ALTER TABLE shipments ADD COLUMN order_id INTEGER')
+    _modules_ready = True
+
+
+# ── auth ──────────────────────────────────────────────────────────────────────
+PUBLIC_API = {'/api/auth/me', '/api/auth/login', '/api/auth/logout', '/api/auth/setup',
+              '/api/auth/forgot', '/api/auth/set-password', '/api/auth/token-info',
+              '/api/cron/summary'}
+
+
+def _public_user(u):
+    return {'id': u['id'], 'email': u['email'], 'name': u.get('name') or u['email'],
+            'role': u['role'], 'active': bool(u.get('active')),
+            'warehouse_id': u.get('warehouse_id'), 'last_login': u.get('last_login'),
+            'has_password': bool(u.get('password_hash')),
+            'perms': sorted(PERMS.get(u['role'], set()))}
+
+
+def _auth_gate():
+    path = request.path
+    if not (path.startswith('/api/') or path.startswith('/uploads/')) or path in PUBLIC_API:
+        return None
+    uid = session.get('uid')
+    user = None
+    if uid:
+        with DB() as db:
+            user = db.one('SELECT * FROM users WHERE id = $1', (uid,))
+    if not user or not user.get('active') or session.get('pv') != (user.get('password_hash') or '')[-12:]:
+        session.clear()
+        return jsonify({'success': False, 'error': 'Please sign in.', 'auth': True}), 401
+    g.user = user
+    return None
+
+
+def can(perm):
+    u = getattr(g, 'user', None)
+    return bool(u) and perm in PERMS.get(u['role'], set())
+
+
+def requires(perm):
+    def deco(fn):
+        @_wraps(fn)
+        def inner(*a, **k):
+            if not can(perm):
+                return jsonify({'success': False, 'error': 'You don’t have permission to do that.'}), 403
+            return fn(*a, **k)
+        return inner
+    return deco
+
+
+def _login(user):
+    session.clear()
+    session.permanent = True
+    session['uid'] = user['id']
+    session['pv'] = (user.get('password_hash') or '')[-12:]
+
+
+def _password_problem(pw):
+    if len(pw or '') < 8:
+        return 'Password must be at least 8 characters.'
+    return None
+
+
+def _make_token(db, user_id, purpose, hours):
+    token = _secrets.token_urlsafe(32)
+    exp = (_dt.datetime.utcnow() + _dt.timedelta(hours=hours)).replace(microsecond=0).isoformat() + 'Z'
+    db.run('INSERT INTO user_tokens (token_hash, user_id, purpose, expires_at, used) VALUES ($1,$2,$3,$4,0)',
+           (_hashlib.sha256(token.encode()).hexdigest(), user_id, purpose, exp))
+    base = request.host_url.rstrip('/')
+    return '{}/?{}={}'.format(base, 'invite' if purpose == 'invite' else 'reset', token)
+
+
+def _token_row(db, token):
+    if not token:
+        return None
+    t = db.one('SELECT * FROM user_tokens WHERE token_hash = $1', (_hashlib.sha256(token.encode()).hexdigest(),))
+    if not t or t.get('used') or (t.get('expires_at') or '') < _now():
+        return None
+    return t
+
+
+def _email_link(user, link, purpose):
+    if not email_configured():
+        return False
+    if purpose == 'invite':
+        subject = 'You’re invited to Logistic Pro'
+        intro = 'You’ve been given access to Logistic Pro as <b>{}</b>. Set your password to get started.'.format(_esc(user['role'].title()))
+    else:
+        subject = 'Reset your Logistic Pro password'
+        intro = 'Use the button below to choose a new password. If you didn’t ask for this, you can ignore this email.'
+    body = ('<p style="margin:0 0 18px">' + intro + '</p>'
+            '<a href="' + _esc(link) + '" style="display:inline-block;background:#4361ee;color:#fff;'
+            'padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Set password</a>'
+            '<p style="margin:18px 0 0;color:#64748b;font-size:12px">This link works once and expires in '
+            + ('3 days' if purpose == 'invite' else '2 hours') + '.</p>')
+    ok, err = send_email([user['email']], subject, _email_shell(subject, body), '{}\n{}'.format(subject, link))
+    if not ok:
+        print('[email] link not sent:', err)
+    return ok
+
+
+@app.route('/api/auth/me')
+def auth_me():
+    with DB() as db:
+        n = db.one('SELECT COUNT(*) AS n FROM users')['n']
+        uid = session.get('uid')
+        u = db.one('SELECT * FROM users WHERE id = $1', (uid,)) if uid else None
+    if u and u.get('active') and session.get('pv') == (u.get('password_hash') or '')[-12:]:
+        return jsonify({'user': _public_user(u)})
+    return jsonify({'user': None, 'setup': n == 0, 'setup_email': BOOTSTRAP_ADMIN if n == 0 else None}), 401
+
+
+@app.route('/api/auth/setup', methods=['POST'])
+def auth_setup():
+    d = request.get_json(silent=True) or {}
+    email = (d.get('email') or '').strip().lower()
+    pw = d.get('password') or ''
+    with DB() as db:
+        if db.one('SELECT COUNT(*) AS n FROM users')['n'] > 0:
+            return jsonify({'success': False, 'error': 'Setup is already complete. Please sign in.'}), 409
+        if email != BOOTSTRAP_ADMIN:
+            return jsonify({'success': False, 'error': 'The first admin account must use ' + BOOTSTRAP_ADMIN + '.'}), 403
+        prob = _password_problem(pw)
+        if prob:
+            return jsonify({'success': False, 'error': prob}), 400
+        uid = db.insert('INSERT INTO users (email, name, role, password_hash, active, created_at, last_login) '
+                        'VALUES ($1,$2,$3,$4,1,$5,$6)',
+                        (email, (d.get('name') or '').strip() or email.split('@')[0].title(), 'admin',
+                         generate_password_hash(pw), _now(), _now()))
+        u = db.one('SELECT * FROM users WHERE id = $1', (uid,))
+    _login(u)
+    return jsonify({'success': True, 'user': _public_user(u)})
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    d = request.get_json(silent=True) or {}
+    email = (d.get('email') or '').strip().lower()
+    pw = d.get('password') or ''
+    bad = jsonify({'success': False, 'error': 'Email or password is incorrect.'}), 401
+    with DB() as db:
+        u = db.one('SELECT * FROM users WHERE email = $1', (email,))
+        if not u or not u.get('active') or not u.get('password_hash'):
+            return bad
+        if (u.get('locked_until') or '') > _now():
+            return jsonify({'success': False, 'error': 'Too many failed attempts. Try again in 15 minutes.'}), 429
+        if not check_password_hash(u['password_hash'], pw):
+            fails = int(u.get('failed_logins') or 0) + 1
+            lock = None
+            if fails >= 5:
+                fails, lock = 0, (_dt.datetime.utcnow() + _dt.timedelta(minutes=15)).replace(microsecond=0).isoformat() + 'Z'
+            db.run('UPDATE users SET failed_logins = $1, locked_until = $2 WHERE id = $3', (fails, lock, u['id']))
+            return bad
+        db.run('UPDATE users SET failed_logins = 0, locked_until = NULL, last_login = $1 WHERE id = $2', (_now(), u['id']))
+    _login(u)
+    return jsonify({'success': True, 'user': _public_user(u)})
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def auth_logout():
+    session.clear()
+    return jsonify({'success': True})
+
+
+@app.route('/api/auth/forgot', methods=['POST'])
+def auth_forgot():
+    email = ((request.get_json(silent=True) or {}).get('email') or '').strip().lower()
+    with DB() as db:
+        u = db.one('SELECT * FROM users WHERE email = $1 AND active = 1', (email,))
+        if u and u.get('password_hash'):
+            link = _make_token(db, u['id'], 'reset', 2)
+        else:
+            u = None
+    if u:
+        _email_link(u, link, 'reset')
+    return jsonify({'success': True, 'emailEnabled': email_configured()})
+
+
+@app.route('/api/auth/token-info')
+def auth_token_info():
+    with DB() as db:
+        t = _token_row(db, request.args.get('token'))
+        u = db.one('SELECT * FROM users WHERE id = $1', (t['user_id'],)) if t else None
+    if not t or not u or not u.get('active'):
+        return jsonify({'valid': False}), 404
+    return jsonify({'valid': True, 'email': u['email'], 'name': u.get('name'), 'purpose': t['purpose']})
+
+
+@app.route('/api/auth/set-password', methods=['POST'])
+def auth_set_password():
+    d = request.get_json(silent=True) or {}
+    prob = _password_problem(d.get('password'))
+    if prob:
+        return jsonify({'success': False, 'error': prob}), 400
+    with DB() as db:
+        t = _token_row(db, d.get('token'))
+        if not t:
+            return jsonify({'success': False, 'error': 'This link has expired or was already used. Ask an admin for a new one.'}), 400
+        db.run('UPDATE user_tokens SET used = 1 WHERE user_id = $1', (t['user_id'],))
+        db.run('UPDATE users SET password_hash = $1, failed_logins = 0, locked_until = NULL, last_login = $2 WHERE id = $3',
+               (generate_password_hash(d['password']), _now(), t['user_id']))
+        u = db.one('SELECT * FROM users WHERE id = $1', (t['user_id'],))
+    if not u.get('active'):
+        return jsonify({'success': False, 'error': 'This account is deactivated.'}), 403
+    _login(u)
+    return jsonify({'success': True, 'user': _public_user(u)})
+
+
+# ── users (admin) ─────────────────────────────────────────────────────────────
+@app.route('/api/users')
+@requires('settings')
+def users_list():
+    with DB() as db:
+        rows = db.rows('SELECT * FROM users ORDER BY active DESC, role, email')
+    return jsonify([_public_user(r) for r in rows])
+
+
+@app.route('/api/users', methods=['POST'])
+@requires('settings')
+def users_invite():
+    d = request.get_json(silent=True) or {}
+    email = (d.get('email') or '').strip().lower()
+    role = d.get('role')
+    if not valid_email(email):
+        return jsonify({'success': False, 'error': 'Enter a valid email address.'}), 400
+    if role not in ROLES:
+        return jsonify({'success': False, 'error': 'Choose a role.'}), 400
+    with DB() as db:
+        if db.one('SELECT id FROM users WHERE email = $1', (email,)):
+            return jsonify({'success': False, 'error': 'That email already has an account.'}), 409
+        uid = db.insert('INSERT INTO users (email, name, role, active, warehouse_id, created_at) VALUES ($1,$2,$3,1,$4,$5)',
+                        (email, (d.get('name') or '').strip() or email.split('@')[0].title(), role,
+                         d.get('warehouse_id') or None, _now()))
+        link = _make_token(db, uid, 'invite', 72)
+        u = db.one('SELECT * FROM users WHERE id = $1', (uid,))
+    sent = _email_link(u, link, 'invite')
+    return jsonify({'success': True, 'user': _public_user(u), 'link': link, 'emailed': sent})
+
+
+def _active_admins(db, excluding=None):
+    rows = db.rows("SELECT id FROM users WHERE role = 'admin' AND active = 1")
+    return [r for r in rows if r['id'] != excluding]
+
+
+@app.route('/api/users/<int:uid>', methods=['PUT'])
+@requires('settings')
+def users_update(uid):
+    d = request.get_json(silent=True) or {}
+    with DB() as db:
+        u = db.one('SELECT * FROM users WHERE id = $1', (uid,))
+        if not u:
+            return jsonify({'success': False, 'error': 'Not found'}), 404
+        role = d.get('role', u['role'])
+        active = 1 if d.get('active', bool(u['active'])) else 0
+        if role not in ROLES:
+            return jsonify({'success': False, 'error': 'Unknown role.'}), 400
+        if uid == g.user['id'] and (not active or role != 'admin'):
+            return jsonify({'success': False, 'error': 'You can’t remove your own admin access.'}), 400
+        if u['role'] == 'admin' and (role != 'admin' or not active) and not _active_admins(db, uid):
+            return jsonify({'success': False, 'error': 'There must be at least one active admin.'}), 400
+        db.run('UPDATE users SET name = $1, role = $2, active = $3, warehouse_id = $4 WHERE id = $5',
+               ((d.get('name') or u.get('name') or '').strip(), role, active,
+                d.get('warehouse_id', u.get('warehouse_id')) or None, uid))
+        u = db.one('SELECT * FROM users WHERE id = $1', (uid,))
+    return jsonify({'success': True, 'user': _public_user(u)})
+
+
+@app.route('/api/users/<int:uid>/link', methods=['POST'])
+@requires('settings')
+def users_link(uid):
+    with DB() as db:
+        u = db.one('SELECT * FROM users WHERE id = $1', (uid,))
+        if not u:
+            return jsonify({'success': False, 'error': 'Not found'}), 404
+        purpose = 'reset' if u.get('password_hash') else 'invite'
+        link = _make_token(db, uid, purpose, 72 if purpose == 'invite' else 2)
+    sent = _email_link(u, link, purpose)
+    return jsonify({'success': True, 'link': link, 'emailed': sent, 'purpose': purpose})
+
+
+# ── warehouses ────────────────────────────────────────────────────────────────
+@app.route('/api/warehouses')
+def wh_list():
+    with DB() as db:
+        return jsonify(db.rows('SELECT * FROM warehouses ORDER BY active DESC, name'))
+
+
+def _wh_payload(d):
+    name = (d.get('name') or '').strip()
+    if not name:
+        return None, 'Enter a warehouse name.'
+    return (name, (d.get('address') or '').strip(), (d.get('manager') or '').strip()), None
+
+
+@app.route('/api/warehouses', methods=['POST'])
+@requires('settings')
+def wh_create():
+    p, err = _wh_payload(request.get_json(silent=True) or {})
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    with DB() as db:
+        if db.one('SELECT id FROM warehouses WHERE LOWER(name) = LOWER($1)', (p[0],)):
+            return jsonify({'success': False, 'error': 'A warehouse with that name already exists.'}), 409
+        wid = db.insert('INSERT INTO warehouses (name, address, manager, active, created_at) VALUES ($1,$2,$3,1,$4)', p + (_now(),))
+        return jsonify({'success': True, 'warehouse': db.one('SELECT * FROM warehouses WHERE id = $1', (wid,))})
+
+
+@app.route('/api/warehouses/<int:wid>', methods=['PUT'])
+@requires('settings')
+def wh_update(wid):
+    d = request.get_json(silent=True) or {}
+    p, err = _wh_payload(d)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    with DB() as db:
+        if db.one('SELECT id FROM warehouses WHERE LOWER(name) = LOWER($1) AND id != $2', (p[0], wid)):
+            return jsonify({'success': False, 'error': 'A warehouse with that name already exists.'}), 409
+        active = 1 if d.get('active', True) else 0
+        if not active and db.one("SELECT id FROM orders WHERE warehouse_id = $1 AND status IN ('pick_list','picked','packed')", (wid,)):
+            return jsonify({'success': False, 'error': 'This warehouse has open orders. Finish or cancel them first.'}), 400
+        db.run('UPDATE warehouses SET name = $1, address = $2, manager = $3, active = $4 WHERE id = $5', p + (active, wid))
+        return jsonify({'success': True, 'warehouse': db.one('SELECT * FROM warehouses WHERE id = $1', (wid,))})
+
+
+# ── inventory ─────────────────────────────────────────────────────────────────
+def _stock_map(db):
+    """{(product_id, warehouse_id): {'on_hand': n, 'reserved': n}}"""
+    out = {}
+    for r in db.rows('SELECT product_id, warehouse_id, SUM(qty) AS q FROM stock_movements GROUP BY product_id, warehouse_id'):
+        out.setdefault((r['product_id'], r['warehouse_id']), {'on_hand': 0, 'reserved': 0})['on_hand'] = int(r['q'] or 0)
+    for r in db.rows("SELECT o.warehouse_id, i.product_id, i.qty_requested, i.qty_picked "
+                     "FROM order_items i JOIN orders o ON o.id = i.order_id "
+                     "WHERE o.status IN ('pick_list','picked','packed')"):
+        q = r['qty_picked'] if r['qty_picked'] is not None else r['qty_requested']
+        out.setdefault((r['product_id'], r['warehouse_id']), {'on_hand': 0, 'reserved': 0})['reserved'] += int(q or 0)
+    return out
+
+
+def _available(db, product_id, warehouse_id, smap=None):
+    s = (smap or _stock_map(db)).get((product_id, warehouse_id), {'on_hand': 0, 'reserved': 0})
+    return s['on_hand'] - s['reserved']
+
+
+def _total_on_hand(db, product_id):
+    r = db.one('SELECT COALESCE(SUM(qty),0) AS q FROM stock_movements WHERE product_id = $1', (product_id,))
+    return int(r['q'] or 0)
+
+
+def _low_stock_check(product_id, before):
+    """Email alert recipients when a product drops below its minimum."""
+    with DB() as db:
+        p = db.one('SELECT * FROM products WHERE id = $1', (product_id,))
+        after = _total_on_hand(db, product_id)
+    if not p or not p.get('min_qty') or not (before >= p['min_qty'] > after):
+        return
+    recipients = get_alert_emails()
+    if not (email_configured() and recipients):
+        return
+    subject = 'Low stock: {} ({} left)'.format(p['name'], after)
+    body = ('<p style="margin:0 0 14px">Stock has dropped below the minimum level.</p>' + _detail_rows([
+        ('Product', _esc(p['name'])), ('SKU', _esc(p['sku'])),
+        ('On hand', str(after)), ('Minimum', str(p['min_qty']))]))
+    send_email(recipients, subject, _email_shell(subject, body), '{}\nMinimum: {}'.format(subject, p['min_qty']))
+
+
+@app.route('/api/products')
+def products_list():
+    wid = request.args.get('warehouse_id', type=int)
+    with DB() as db:
+        prods = db.rows('SELECT * FROM products ORDER BY active DESC, name')
+        smap = _stock_map(db)
+        whs = db.rows('SELECT id, name FROM warehouses')
+    out = []
+    for p in prods:
+        per = []
+        tot = {'on_hand': 0, 'reserved': 0}
+        for w in whs:
+            s = smap.get((p['id'], w['id']))
+            if not s:
+                continue
+            per.append({'warehouse_id': w['id'], 'warehouse': w['name'], 'on_hand': s['on_hand'],
+                        'reserved': s['reserved'], 'available': s['on_hand'] - s['reserved']})
+            if wid in (None, w['id']):
+                tot['on_hand'] += s['on_hand']
+                tot['reserved'] += s['reserved']
+        p.update(tot)
+        p['available'] = tot['on_hand'] - tot['reserved']
+        p['by_warehouse'] = per
+        p['stock_value'] = round(tot['on_hand'] * float(p.get('unit_value') or 0), 2)
+        out.append(p)
+    return jsonify(out)
+
+
+def _product_payload(d):
+    sku = (d.get('sku') or '').strip().upper()
+    name = (d.get('name') or '').strip()
+    if not sku or not name:
+        return None, 'SKU and product name are required.'
+    try:
+        min_qty = max(0, int(d.get('min_qty') or 0))
+        value = max(0.0, float(d.get('unit_value') or 0))
+    except (TypeError, ValueError):
+        return None, 'Minimum level and unit value must be numbers.'
+    return (sku, name, (d.get('unit') or 'pcs').strip() or 'pcs', (d.get('category') or '').strip(), min_qty, value), None
+
+
+@app.route('/api/products', methods=['POST'])
+@requires('products.manage')
+def products_create():
+    d = request.get_json(silent=True) or {}
+    p, err = _product_payload(d)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    with DB() as db:
+        if db.one('SELECT id FROM products WHERE sku = $1', (p[0],)):
+            return jsonify({'success': False, 'error': 'That SKU already exists.'}), 409
+        pid = db.insert('INSERT INTO products (sku, name, unit, category, min_qty, unit_value, active, created_at) '
+                        'VALUES ($1,$2,$3,$4,$5,$6,1,$7)', p + (_now(),))
+        for o in d.get('opening') or []:
+            try:
+                q, w = int(o.get('qty') or 0), int(o.get('warehouse_id'))
+            except (TypeError, ValueError):
+                continue
+            if q > 0 and db.one('SELECT id FROM warehouses WHERE id = $1', (w,)):
+                db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, user_id, created_at) "
+                       "VALUES ($1,$2,$3,'opening','Opening stock',$4,$5)", (pid, w, q, g.user['id'], _now()))
+        return jsonify({'success': True, 'id': pid})
+
+
+@app.route('/api/products/<int:pid>', methods=['PUT'])
+@requires('products.manage')
+def products_update(pid):
+    d = request.get_json(silent=True) or {}
+    p, err = _product_payload(d)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    with DB() as db:
+        if db.one('SELECT id FROM products WHERE sku = $1 AND id != $2', (p[0], pid)):
+            return jsonify({'success': False, 'error': 'That SKU already exists.'}), 409
+        db.run('UPDATE products SET sku=$1, name=$2, unit=$3, category=$4, min_qty=$5, unit_value=$6, active=$7 WHERE id=$8',
+               p + (1 if d.get('active', True) else 0, pid))
+    return jsonify({'success': True})
+
+
+@app.route('/api/products/<int:pid>/movements')
+def products_movements(pid):
+    with DB() as db:
+        rows = db.rows('SELECT m.*, w.name AS warehouse, u.name AS user_name FROM stock_movements m '
+                       'LEFT JOIN warehouses w ON w.id = m.warehouse_id LEFT JOIN users u ON u.id = m.user_id '
+                       'WHERE m.product_id = $1 ORDER BY m.id DESC', (pid,))
+    return jsonify(rows[:300])
+
+
+@app.route('/api/stock/adjust', methods=['POST'])
+@requires('stock.adjust')
+def stock_adjust():
+    d = request.get_json(silent=True) or {}
+    try:
+        pid, wid, qty = int(d.get('product_id')), int(d.get('warehouse_id')), int(d.get('qty'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a product, warehouse and quantity.'}), 400
+    reason = (d.get('reason') or '').strip()
+    if qty == 0 or not reason:
+        return jsonify({'success': False, 'error': 'Enter a non-zero quantity and a reason.'}), 400
+    with DB() as db:
+        if not db.one('SELECT id FROM products WHERE id = $1', (pid,)) or not db.one('SELECT id FROM warehouses WHERE id = $1 AND active = 1', (wid,)):
+            return jsonify({'success': False, 'error': 'Product or warehouse not found.'}), 404
+        before = _total_on_hand(db, pid)
+        if qty < 0 and _available(db, pid, wid) + qty < 0:
+            return jsonify({'success': False, 'error': 'Not enough available stock to remove that many (some may be reserved for orders).'}), 400
+        db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, note, user_id, created_at) "
+               "VALUES ($1,$2,$3,'adjust',$4,$5,$6,$7)", (pid, wid, qty, reason, (d.get('note') or '').strip(), g.user['id'], _now()))
+    _low_stock_check(pid, before)
+    return jsonify({'success': True})
+
+
+@app.route('/api/stock/transfer', methods=['POST'])
+@requires('stock.adjust')
+def stock_transfer():
+    d = request.get_json(silent=True) or {}
+    try:
+        pid, src, dst, qty = int(d.get('product_id')), int(d.get('from_id')), int(d.get('to_id')), int(d.get('qty'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a product, both warehouses and a quantity.'}), 400
+    if qty <= 0 or src == dst:
+        return jsonify({'success': False, 'error': 'Choose two different warehouses and a quantity above zero.'}), 400
+    with DB() as db:
+        if not db.one('SELECT id FROM warehouses WHERE id = $1 AND active = 1', (dst,)):
+            return jsonify({'success': False, 'error': 'Destination warehouse not found.'}), 404
+        if _available(db, pid, src) < qty:
+            return jsonify({'success': False, 'error': 'Not enough available stock in the source warehouse.'}), 400
+        note = (d.get('note') or '').strip()
+        db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, note, user_id, created_at) "
+               "VALUES ($1,$2,$3,'transfer','Transfer out',$4,$5,$6)", (pid, src, -qty, note, g.user['id'], _now()))
+        db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, note, user_id, created_at) "
+               "VALUES ($1,$2,$3,'transfer','Transfer in',$4,$5,$6)", (pid, dst, qty, note, g.user['id'], _now()))
+    return jsonify({'success': True})
+
+
+# ── orders (pick & pack) ──────────────────────────────────────────────────────
+def _order_full(db, oid):
+    o = db.one('SELECT o.*, w.name AS warehouse, u.name AS requester, u.email AS requester_email, '
+               's.awb_no AS awb_no, s.status AS shipment_status '
+               'FROM orders o LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
+               'LEFT JOIN shipments s ON s.id = o.shipment_id WHERE o.id = $1', (oid,))
+    if not o:
+        return None
+    o['items'] = db.rows('SELECT i.*, p.sku, p.name, p.unit FROM order_items i JOIN products p ON p.id = i.product_id '
+                         'WHERE i.order_id = $1 ORDER BY i.id', (oid,))
+    names = {r['id']: r['name'] for r in db.rows('SELECT id, name FROM users')}
+    for k in ('picked_by', 'packed_by', 'shipped_by'):
+        o[k + '_name'] = names.get(o.get(k))
+    o['number'] = 'PL-{:04d}'.format(o['id'])
+    o['status_label'] = ORDER_LABEL.get(o['status'], o['status'])
+    return o
+
+
+def _notify_roles(roles, subject, lines, extra=None):
+    if not email_configured():
+        return
+    with DB() as db:
+        to = [r['email'] for r in db.rows('SELECT email, role FROM users WHERE active = 1') if r['role'] in roles]
+    to = sorted(set(to + (extra or [])))
+    if to:
+        body = _detail_rows([(k, _esc(v)) for k, v in lines])
+        send_email(to, subject, _email_shell(subject, body), subject)
+
+
+@app.route('/api/orders')
+def orders_list():
+    with DB() as db:
+        rows = db.rows('SELECT o.*, w.name AS warehouse, u.name AS requester, s.awb_no AS awb_no FROM orders o '
+                       'LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
+                       'LEFT JOIN shipments s ON s.id = o.shipment_id ORDER BY o.id DESC')
+        counts = {}
+        for r in db.rows('SELECT order_id, COUNT(*) AS n, SUM(qty_requested) AS q FROM order_items GROUP BY order_id'):
+            counts[r['order_id']] = r
+    for r in rows:
+        r['number'] = 'PL-{:04d}'.format(r['id'])
+        r['status_label'] = ORDER_LABEL.get(r['status'], r['status'])
+        c = counts.get(r['id']) or {}
+        r['lines'] = int(c.get('n') or 0)
+        r['units'] = int(c.get('q') or 0)
+    return jsonify(rows)
+
+
+@app.route('/api/orders/<int:oid>')
+def orders_get(oid):
+    with DB() as db:
+        o = _order_full(db, oid)
+    return (jsonify(o) if o else (jsonify({'error': 'Not found'}), 404))
+
+
+@app.route('/api/orders', methods=['POST'])
+@requires('orders.create')
+def orders_create():
+    d = request.get_json(silent=True) or {}
+    try:
+        wid = int(d.get('warehouse_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a warehouse.'}), 400
+    want = {}
+    for it in d.get('items') or []:
+        try:
+            pid, q = int(it.get('product_id')), int(it.get('qty'))
+        except (TypeError, ValueError):
+            continue
+        if q > 0:
+            want[pid] = want.get(pid, 0) + q
+    if not want:
+        return jsonify({'success': False, 'error': 'Add at least one product with a quantity.'}), 400
+    if not (d.get('destination') or '').strip():
+        return jsonify({'success': False, 'error': 'Enter where the items are going.'}), 400
+    with DB() as db:
+        if not db.one('SELECT id FROM warehouses WHERE id = $1 AND active = 1', (wid,)):
+            return jsonify({'success': False, 'error': 'Warehouse not found.'}), 404
+        smap = _stock_map(db)
+        for pid, q in want.items():
+            p = db.one('SELECT name FROM products WHERE id = $1 AND active = 1', (pid,))
+            if not p:
+                return jsonify({'success': False, 'error': 'A selected product no longer exists.'}), 400
+            avail = _available(db, pid, wid, smap)
+            if avail < q:
+                return jsonify({'success': False, 'error': 'Only {} of {} available in this warehouse.'.format(max(avail, 0), p['name'])}), 400
+        oid = db.insert('INSERT INTO orders (warehouse_id, requester_id, destination, contact, urgency, notes, status, created_at, updated_at) '
+                        "VALUES ($1,$2,$3,$4,$5,$6,'pick_list',$7,$8)",
+                        (wid, g.user['id'], d['destination'].strip(), (d.get('contact') or '').strip(),
+                         'Urgent' if d.get('urgency') == 'Urgent' else 'Normal', (d.get('notes') or '').strip(), _now(), _now()))
+        for pid, q in want.items():
+            db.run('INSERT INTO order_items (order_id, product_id, qty_requested) VALUES ($1,$2,$3)', (oid, pid, q))
+        o = _order_full(db, oid)
+    _notify_roles({'warehouse', 'admin'}, 'New pick list {} – {}'.format(o['number'], o['warehouse']),
+                  [('Order', o['number']), ('Warehouse', o['warehouse']), ('Destination', o['destination']),
+                   ('Urgency', o['urgency']), ('Requested by', o['requester'] or ''),
+                   ('Items', ', '.join('{} × {}'.format(i['qty_requested'], i['name']) for i in o['items']))])
+    return jsonify({'success': True, 'order': o})
+
+
+def _order_for(db, oid, statuses):
+    o = db.one('SELECT * FROM orders WHERE id = $1', (oid,))
+    if not o:
+        return None, (jsonify({'success': False, 'error': 'Order not found.'}), 404)
+    if o['status'] not in statuses:
+        return None, (jsonify({'success': False, 'error': 'This order is already “{}”. Refresh to see the latest.'.format(ORDER_LABEL.get(o['status'], o['status']))}), 409)
+    return o, None
+
+
+@app.route('/api/orders/<int:oid>/pick', methods=['POST'])
+@requires('orders.process')
+def orders_pick(oid):
+    d = request.get_json(silent=True) or {}
+    picked = {}
+    for it in d.get('items') or []:
+        try:
+            picked[int(it.get('item_id'))] = int(it.get('qty_picked'))
+        except (TypeError, ValueError):
+            pass
+    with DB() as db:
+        o, err = _order_for(db, oid, ('pick_list',))
+        if err:
+            return err
+        items = db.rows('SELECT * FROM order_items WHERE order_id = $1', (oid,))
+        total = 0
+        for i in items:
+            q = picked.get(i['id'], i['qty_requested'])
+            if q < 0 or q > i['qty_requested']:
+                return jsonify({'success': False, 'error': 'Picked quantity must be between 0 and the requested quantity.'}), 400
+            total += q
+        if total == 0:
+            return jsonify({'success': False, 'error': 'Nothing was picked. Cancel the order instead.'}), 400
+        for i in items:
+            db.run('UPDATE order_items SET qty_picked = $1 WHERE id = $2', (picked.get(i['id'], i['qty_requested']), i['id']))
+        db.run("UPDATE orders SET status = 'picked', picked_by = $1, picked_at = $2, updated_at = $3 WHERE id = $4",
+               (g.user['id'], _now(), _now(), oid))
+        o = _order_full(db, oid)
+    return jsonify({'success': True, 'order': o})
+
+
+@app.route('/api/orders/<int:oid>/pack', methods=['POST'])
+@requires('orders.process')
+def orders_pack(oid):
+    d = request.get_json(silent=True) or {}
+    try:
+        boxes = int(d.get('boxes'))
+        weight = float(d.get('weight')) if d.get('weight') not in (None, '') else None
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Enter the number of boxes (and weight as a number).'}), 400
+    if boxes < 1:
+        return jsonify({'success': False, 'error': 'Enter at least 1 box.'}), 400
+    with DB() as db:
+        o, err = _order_for(db, oid, ('picked',))
+        if err:
+            return err
+        db.run("UPDATE orders SET status = 'packed', boxes = $1, weight = $2, dimensions = $3, packed_by = $4, packed_at = $5, updated_at = $6 WHERE id = $7",
+               (boxes, weight, (d.get('dimensions') or '').strip(), g.user['id'], _now(), _now(), oid))
+        o = _order_full(db, oid)
+    _notify_roles({'logistics', 'admin'}, 'Ready to ship: {} – {}'.format(o['number'], o['destination']),
+                  [('Order', o['number']), ('Warehouse', o['warehouse']), ('Destination', o['destination']),
+                   ('Contact', o.get('contact') or '—'), ('Boxes', str(boxes)), ('Weight (kg)', str(weight or '—')),
+                   ('Urgency', o['urgency'])])
+    return jsonify({'success': True, 'order': o})
+
+
+@app.route('/api/orders/<int:oid>/ship', methods=['POST'])
+@requires('orders.ship')
+def orders_ship(oid):
+    d = request.get_json(silent=True) or {}
+    awb = (d.get('awb_no') or '').strip()
+    if not awb:
+        return jsonify({'success': False, 'error': 'Enter the AWB number.'}), 400
+    befores = {}
+    with DB() as db:
+        o, err = _order_for(db, oid, ('packed',))
+        if err:
+            return err
+        if db.one('SELECT id FROM shipments WHERE awb_no = $1', (awb,)):
+            return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
+        sid = db.insert('INSERT INTO shipments (date, awb_no, cost, status, order_id) VALUES ($1,$2,$3,$4,$5)',
+                        ((d.get('date') or _now()[:10]), awb, d.get('cost') or None, 'Transit', oid))
+        for i in db.rows('SELECT * FROM order_items WHERE order_id = $1', (oid,)):
+            q = int(i['qty_picked'] or 0)
+            if q:
+                befores.setdefault(i['product_id'], _total_on_hand(db, i['product_id']))
+                db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, order_id, shipment_id, user_id, created_at) "
+                       "VALUES ($1,$2,$3,'ship','Shipped',$4,$5,$6,$7)",
+                       (i['product_id'], o['warehouse_id'], -q, oid, sid, g.user['id'], _now()))
+        db.run("UPDATE orders SET status = 'shipped', shipment_id = $1, shipped_by = $2, shipped_at = $3, updated_at = $4 WHERE id = $5",
+               (sid, g.user['id'], _now(), _now(), oid))
+        o = _order_full(db, oid)
+        ship = db.one('SELECT * FROM shipments WHERE id = $1', (sid,))
+    notify_shipment(ship, 'added')
+    _notify_roles(set(), 'Your order {} has shipped (AWB {})'.format(o['number'], awb),
+                  [('Order', o['number']), ('AWB No.', awb), ('Destination', o['destination']), ('Boxes', str(o.get('boxes') or '—'))],
+                  extra=[o['requester_email']] if o.get('requester_email') else [])
+    for pid, before in befores.items():
+        _low_stock_check(pid, before)
+    return jsonify({'success': True, 'order': o, 'shipment': ship})
+
+
+@app.route('/api/orders/<int:oid>/cancel', methods=['POST'])
+@requires('orders.cancel')
+def orders_cancel(oid):
+    reason = ((request.get_json(silent=True) or {}).get('reason') or '').strip()
+    with DB() as db:
+        o, err = _order_for(db, oid, ORDER_OPEN)
+        if err:
+            return err
+        if g.user['role'] == 'requester' and o['requester_id'] != g.user['id']:
+            return jsonify({'success': False, 'error': 'You can only cancel your own pick lists.'}), 403
+        if g.user['role'] == 'requester' and o['status'] != 'pick_list':
+            return jsonify({'success': False, 'error': 'Picking has started. Ask the warehouse to cancel it.'}), 403
+        db.run("UPDATE orders SET status = 'cancelled', cancel_reason = $1, updated_at = $2 WHERE id = $3", (reason, _now(), oid))
+        o = _order_full(db, oid)
+    return jsonify({'success': True, 'order': o})
+
+
+@app.route('/api/orders/<int:oid>/return', methods=['POST'])
+@requires('returns.receive')
+def orders_return(oid):
+    action = (request.get_json(silent=True) or {}).get('action')
+    if action not in ('restock', 'scrap'):
+        return jsonify({'success': False, 'error': 'Choose restock or scrap.'}), 400
+    with DB() as db:
+        o, err = _order_for(db, oid, ('shipped',))
+        if err:
+            return err
+        s = db.one('SELECT status FROM shipments WHERE id = $1', (o['shipment_id'],))
+        if not s or s['status'] != 'Returned':
+            return jsonify({'success': False, 'error': 'Mark the shipment as Returned first.'}), 400
+        if o.get('return_action'):
+            return jsonify({'success': False, 'error': 'This return was already recorded.'}), 409
+        if action == 'restock':
+            for i in db.rows('SELECT * FROM order_items WHERE order_id = $1', (oid,)):
+                if i['qty_picked']:
+                    db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, order_id, shipment_id, user_id, created_at) "
+                           "VALUES ($1,$2,$3,'return','Returned to stock',$4,$5,$6,$7)",
+                           (i['product_id'], o['warehouse_id'], int(i['qty_picked']), oid, o['shipment_id'], g.user['id'], _now()))
+        db.run('UPDATE orders SET return_action = $1, updated_at = $2 WHERE id = $3', (action, _now(), oid))
+        o = _order_full(db, oid)
+    return jsonify({'success': True, 'order': o})
+
+
+def unlink_order_shipment(db, sid):
+    """Called before a shipment is deleted: put shipped stock back and reopen the order as packed."""
+    o = db.one('SELECT * FROM orders WHERE shipment_id = $1', (sid,))
+    if not o:
+        return
+    if o.get('return_action') != 'restock':
+        for i in db.rows('SELECT * FROM order_items WHERE order_id = $1', (o['id'],)):
+            if i['qty_picked']:
+                db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, order_id, user_id, created_at) "
+                       "VALUES ($1,$2,$3,'adjust','Shipment deleted',$4,$5,$6)",
+                       (i['product_id'], o['warehouse_id'], int(i['qty_picked']), o['id'], g.user['id'], _now()))
+    db.run("UPDATE orders SET status = 'packed', shipment_id = NULL, shipped_by = NULL, shipped_at = NULL, "
+           "return_action = NULL, updated_at = $1 WHERE id = $2", (_now(), o['id']))
+
+
+def modules_dashboard():
+    with DB() as db:
+        counts = {r['status']: int(r['n']) for r in db.rows('SELECT status, COUNT(*) AS n FROM orders GROUP BY status')}
+        prods = db.rows('SELECT id, min_qty, unit_value FROM products WHERE active = 1')
+        smap = _stock_map(db)
+    low = 0
+    value = 0.0
+    for p in prods:
+        on_hand = sum(v['on_hand'] for (pid, _w), v in smap.items() if pid == p['id'])
+        value += on_hand * float(p.get('unit_value') or 0)
+        if p.get('min_qty') and on_hand < p['min_qty']:
+            low += 1
+    return {'to_pick': counts.get('pick_list', 0), 'to_pack': counts.get('picked', 0),
+            'to_ship': counts.get('packed', 0), 'low_stock': low, 'stock_value': round(value, 2),
+            'products': len(prods)}
 
 
 # ── email (SMTP) ──────────────────────────────────────────────────────────────
@@ -412,12 +1311,14 @@ def cron_summary():
 
 
 @app.route('/api/settings/recipients', methods=['GET'])
+@requires('settings')
 def get_recipients():
     return jsonify({'emails': get_alert_emails(), 'configured': email_configured(),
                     'max': MAX_RECIPIENTS})
 
 
 @app.route('/api/settings/recipients', methods=['PUT'])
+@requires('settings')
 def save_recipients():
     import json
     d = request.get_json(silent=True) or {}
@@ -442,6 +1343,7 @@ def save_recipients():
 
 
 @app.route('/api/settings/test-email', methods=['POST'])
+@requires('settings')
 def test_email():
     recipients = get_alert_emails()
     if not recipients:
@@ -492,6 +1394,7 @@ def get_shipments():
 
 
 @app.route('/api/shipments', methods=['POST'])
+@requires('shipments.edit')
 def add_shipment():
     awb_file     = save_file('awb_file')
     invoice_file = save_file('invoice_file')
@@ -532,6 +1435,7 @@ def add_shipment():
 
 
 @app.route('/api/shipments/<int:sid>', methods=['PUT'])
+@requires('shipments.edit')
 def update_shipment(sid):
     awb_file     = save_file('awb_file')
     invoice_file = save_file('invoice_file')
@@ -584,16 +1488,11 @@ def update_shipment(sid):
 
 
 @app.route('/api/shipments/<int:sid>', methods=['DELETE'])
+@requires('shipments.delete')
 def delete_shipment(sid):
-    if USE_PG:
-        conn = get_pg()
-        try:
-            pg_run(conn, 'DELETE FROM shipments WHERE id = $1', (sid,))
-        finally:
-            conn.close()
-    else:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute('DELETE FROM shipments WHERE id=?', (sid,))
+    with DB() as db:
+        unlink_order_shipment(db, sid)
+        db.run('DELETE FROM shipments WHERE id = $1', (sid,))
     return jsonify({'success': True})
 
 
@@ -632,7 +1531,8 @@ def dashboard():
         'total': total, 'transit': transit,
         'delivered': delivered, 'returned': returned,
         'total_cost': round(float(total_cost or 0), 2),
-        'monthly': monthly
+        'monthly': monthly,
+        'modules': modules_dashboard()
     })
 
 
@@ -643,5 +1543,6 @@ def uploads(filename):
 
 if __name__ == '__main__':
     ensure_db()
+    ensure_modules_db()
     print('Logistic Pro running at http://localhost:5002')
     app.run(debug=True, port=5002)
