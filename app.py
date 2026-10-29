@@ -6,7 +6,8 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
 IS_VERCEL     = bool(os.environ.get('VERCEL'))
-DATABASE_URL  = os.environ.get('DATABASE_URL')
+# Production uses DATABASE_URL; preview deployments fall back to the separate test database.
+DATABASE_URL  = os.environ.get('DATABASE_URL') or os.environ.get('TEST_DATABASE_DATABASE_URL')
 UPLOAD_FOLDER = '/tmp/lp_uploads' if IS_VERCEL else os.path.join(os.path.dirname(__file__), 'uploads')
 DB_PATH       = '/tmp/logisticpro.db' if IS_VERCEL else os.path.join(os.path.dirname(__file__), 'logisticpro.db')
 
