@@ -830,6 +830,7 @@ th.num{text-align:right}
 .mini th:first-child,.mini td:first-child{display:table-cell !important}
 .mini td,.mini th{white-space:normal}
 .u-row > .badge{justify-self:start}
+.bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
 tr.row-inactive td{opacity:.55}
 .mini th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
 .mini td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
@@ -2225,20 +2226,84 @@ function renderWarehousesAdmin() {
       <td><span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span></td></tr>`;
   }).join('') : `<tr class="empty-row"><td colspan="7">${can('settings') ? 'No warehouses yet. Add your first one above.' : 'No warehouses yet.'}</td></tr>`;
 }
-function openWarehouse(id) {
+let LOCS = {};
+async function getLocs(wid, force) {
+  if (!wid) return [];
+  if (!LOCS[wid] || force) {
+    try { LOCS[wid] = (await api('/api/warehouses/' + wid + '/locations')).locations; } catch { LOCS[wid] = []; }
+  }
+  return LOCS[wid];
+}
+function locOptions(wid, sel, firstLabel = 'Unassigned') {
+  const list = (LOCS[wid] || []).filter(l => l.active);
+  return `<option value="">${firstLabel}</option>` + list.map(l => `<option value="${l.id}" ${String(sel) === String(l.id) ? 'selected' : ''}>${H(l.code)}${l.description ? ' – ' + H(l.description) : ''}</option>`).join('');
+}
+async function fillLocSelect(whSelId, locSelId, sel) {
+  const wid = val(whSelId), el = document.getElementById(locSelId);
+  if (!el) return;
+  await getLocs(wid);
+  el.innerHTML = locOptions(wid, sel);
+  el.disabled = !wid;
+}
+async function openWarehouse(id) {
   const w = WH.find(x => x.id === id); if (!w) return;
+  let L = {locations: [], unassigned_units: 0, unassigned_products: 0};
+  try { L = await api('/api/warehouses/' + id + '/locations'); LOCS[id] = L.locations; } catch {}
   const rows = PRODUCTS.map(p => ({p, b: (p.by_warehouse || []).find(x => x.warehouse_id === id)})).filter(x => x.b && (x.b.on_hand || x.b.reserved));
   const st = whStock(id);
+  const canLoc = can('stock.adjust');
+  const locRows = L.locations.map(l => `<tr class="${l.active ? '' : 'row-inactive'}"><td><b>${H(l.code)}</b>${l.description ? `<span class="sub">${H(l.description)}</span>` : ''}</td>
+      <td class="num">${fmtN(l.products)}</td><td class="num">${fmtN(l.units)}</td>
+      <td class="num">${canLoc ? `<button class="icon-btn" style="margin-left:auto" title="${l.active ? 'Deactivate' : 'Activate'}" aria-label="${l.active ? 'Deactivate' : 'Activate'} ${H(l.code)}" onclick="toggleLoc(${l.id}, ${l.active ? 0 : 1}, ${id})"><i class="fa ${l.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button>` : (l.active ? '' : 'Inactive')}</td></tr>`).join('');
   openPanel(w.name, [w.address, w.manager && 'Responsible: ' + w.manager].filter(Boolean).join(' · '), `
     <span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span>
     <dl class="kv" style="margin-top:14px"><dt>Products in stock</dt><dd>${fmtN(st.products)}</dd><dt>Units on hand</dt><dd>${fmtN(st.units)}</dd>
-      <dt>Stock value</dt><dd>AED ${fmtN(Math.round(st.value))}</dd></dl>
+      <dt>Stock value</dt><dd>AED ${fmtN(Math.round(st.value))}</dd><dt>Locations</dt><dd>${fmtN(L.locations.filter(l => l.active).length)} active</dd></dl>
+    <div class="p-sec"><i class="fa fa-table-cells"></i> Storage locations</div>
+    ${L.locations.length || L.unassigned_units ? `<table class="mini"><thead><tr><th>Location</th><th class="num">Products</th><th class="num">Units</th><th></th></tr></thead><tbody>
+      ${locRows}${L.unassigned_units ? `<tr><td><i>Unassigned</i><span class="sub">Not in a bin yet</span></td><td class="num">${fmtN(L.unassigned_products)}</td><td class="num">${fmtN(L.unassigned_units)}</td><td></td></tr>` : ''}
+    </tbody></table>` : '<p class="pf-hint">No locations yet. Add zones, racks, shelves and bins below.</p>'}
+    ${canLoc ? `
+    <div class="p-sec"><i class="fa fa-plus"></i> Add a location</div>
+    <div class="pf-row"><div class="pf"><label for="lc-z">Zone</label><input id="lc-z" placeholder="A"></div><div class="pf"><label for="lc-r">Rack / aisle</label><input id="lc-r" placeholder="01"></div></div>
+    <div class="pf-row"><div class="pf"><label for="lc-s">Shelf</label><input id="lc-s" placeholder="3"></div><div class="pf"><label for="lc-b">Bin</label><input id="lc-b" placeholder="B"></div></div>
+    <div class="pf"><label for="lc-d">Description (optional)</label><input id="lc-d" placeholder="e.g. Devices, Returns"></div>
+    <p class="pf-hint">Fill in only the levels you use. The code is built automatically, e.g. A-01-3-B.</p>
+    <div class="p-actions"><button class="pbtn primary" onclick="addLoc(${id}, this)"><i class="fa fa-plus"></i> Add location</button></div>
+    <div class="p-sec"><i class="fa fa-layer-group"></i> Add a range</div>
+    <div class="pf-row"><div class="pf"><label for="lg-z">Zone</label><input id="lg-z" placeholder="A"></div><div class="pf"><label for="lg-r">Rack / aisle</label><input id="lg-r" placeholder="02"></div></div>
+    <div class="pf-row"><div class="pf"><label for="lg-s">Shelves</label><input id="lg-s" placeholder="1-5"></div><div class="pf"><label for="lg-b">Bins</label><input id="lg-b" placeholder="A-D"></div></div>
+    <p class="pf-hint">Example: zone A, rack 02, shelves 1-5, bins A-D creates A-02-1-A … A-02-5-D (20 locations).</p>
+    <div class="p-actions"><button class="pbtn" onclick="genLocs(${id}, this)"><i class="fa fa-layer-group"></i> Create range</button></div>` : ''}
     <div class="p-sec"><i class="fa fa-cubes"></i> Stock in this warehouse</div>
     ${rows.length ? `<table class="mini"><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
-      ${rows.map(({p, b}) => `<tr><td>${H(p.name)}<span class="sub">${H(p.sku)}</span></td><td class="num">${fmtN(b.on_hand)}</td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>`).join('')}
+      ${rows.map(({p, b}) => `<tr><td>${H(p.name)}<span class="sub">${H(p.sku)}${(b.locations || []).length ? ' · ' + b.locations.map(x => H(x.code) + ' ×' + x.on_hand).join(', ') : ''}</span></td><td class="num">${fmtN(b.on_hand)}</td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>`).join('')}
     </tbody></table>` : '<p class="pf-hint">No stock in this warehouse yet.</p>'}
     ${can('settings') ? `<div class="p-actions"><button class="pbtn" onclick="toggleWarehouse(${w.id})">${w.active ? '<i class="fa fa-ban"></i> Deactivate' : '<i class="fa fa-check"></i> Activate'}</button>
       <button class="pbtn primary" onclick="editWarehouse(${w.id})"><i class="fa fa-pen"></i> Edit</button></div>` : ''}`);
+}
+async function addLoc(wid, btn) {
+  const body = {zone: val('lc-z'), rack: val('lc-r'), shelf: val('lc-s'), bin: val('lc-b'), description: val('lc-d')};
+  if (![body.zone, body.rack, body.shelf, body.bin].some(v => v && v.trim())) { toast('Enter at least a zone, rack, shelf or bin.', 'error'); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/warehouses/' + wid + '/locations', {json: body});
+    toast('Location ' + d.code + ' added.'); await getLocs(wid, true); openWarehouse(wid);
+  });
+}
+async function genLocs(wid, btn) {
+  const body = {zone: val('lg-z'), rack: val('lg-r'), shelves: val('lg-s'), bins: val('lg-b')};
+  if (!body.shelves && !body.bins) { toast('Enter shelves and/or bins, e.g. 1-5 and A-D.', 'error'); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/warehouses/' + wid + '/locations/generate', {json: body});
+    toast(d.created + ' location' + (d.created !== 1 ? 's' : '') + ' created' + (d.skipped ? ', ' + d.skipped + ' already existed' : '') + '.');
+    await getLocs(wid, true); openWarehouse(wid);
+  });
+}
+async function toggleLoc(lid, active, wid) {
+  await busy(null, async () => {
+    await api('/api/locations/' + lid, {method: 'PUT', json: {active: !!active}});
+    toast(active ? 'Location activated.' : 'Location deactivated.'); await getLocs(wid, true); openWarehouse(wid);
+  });
 }
 async function addWarehouse() {
   const name = val('whs-name').trim();
@@ -2361,12 +2426,13 @@ async function openProduct(id) {
     <span class="badge badge-${k}">${l}</span>
     <dl class="kv" style="margin-top:14px"><dt>Unit</dt><dd>${H(p.unit || 'pcs')}</dd><dt>Minimum level</dt><dd>${fmtN(p.min_qty)}</dd>
       <dt>Unit value</dt><dd>AED ${Number(p.unit_value || 0).toFixed(2)}</dd><dt>Stock value</dt><dd>AED ${fmtN(Math.round(p.on_hand * (p.unit_value || 0)))}</dd></dl>
-    <div class="p-sec"><i class="fa fa-warehouse"></i> Stock by warehouse</div>
-    ${p.by_warehouse.length ? `<table class="mini"><thead><tr><th>Warehouse</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
-      ${p.by_warehouse.map(b => `<tr><td>${H(b.warehouse)}</td><td class="num">${fmtN(b.on_hand)}</td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>`).join('')}
+    <div class="p-sec"><i class="fa fa-warehouse"></i> Stock by warehouse and location</div>
+    ${p.by_warehouse.length ? `<table class="mini"><thead><tr><th>Warehouse / location</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
+      ${p.by_warehouse.map(b => `<tr><td><b>${H(b.warehouse)}</b></td><td class="num"><b>${fmtN(b.on_hand)}</b></td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>
+        ${(b.locations || []).map(x => `<tr><td style="padding-left:18px">${x.location_id ? H(x.code) : '<i>Unassigned</i>'}</td><td class="num">${fmtN(x.on_hand)}</td><td class="num"></td><td class="num"></td></tr>`).join('')}`).join('')}
     </tbody></table>` : '<p class="pf-hint">No stock recorded yet.</p>'}
     <div class="p-actions">
-      ${can('stock.adjust') ? `<button class="pbtn" onclick="openAdjust(${p.id})"><i class="fa fa-sliders"></i> Adjust</button><button class="pbtn" onclick="openTransfer(${p.id})"><i class="fa fa-right-left"></i> Transfer</button>` : ''}
+      ${can('stock.adjust') ? `<button class="pbtn" onclick="openAdjust(${p.id})"><i class="fa fa-sliders"></i> Adjust</button><button class="pbtn" onclick="openTransfer(${p.id})"><i class="fa fa-right-left"></i> Move / transfer</button>` : ''}
       ${can('products.manage') ? `<button class="pbtn" onclick="openProductForm(${p.id})"><i class="fa fa-pen"></i> Edit product</button>` : ''}
     </div>
     <div class="p-sec"><i class="fa fa-clock-rotate-left"></i> Movement history</div>
@@ -2374,13 +2440,15 @@ async function openProduct(id) {
   try {
     const mv = await api('/api/products/' + id + '/movements');
     document.getElementById('mv-list').innerHTML = mv.length ? mv.map(m => `<li><div>${H(m.reason || m.type)}${m.note ? ' – ' + H(m.note) : ''}
-      <small>${H(m.warehouse || '')} · ${fmtDate(m.created_at)}${m.user_name ? ' · ' + H(m.user_name) : ''}${m.order_id ? ' · PL-' + String(m.order_id).padStart(4, '0') : ''}</small></div>
+      <small>${H(m.warehouse || '')}${m.location ? ' · ' + H(m.location) : ''} · ${fmtDate(m.created_at)}${m.user_name ? ' · ' + H(m.user_name) : ''}${m.order_id ? ' · PL-' + String(m.order_id).padStart(4, '0') : ''}</small></div>
       <span class="q ${m.qty > 0 ? 'pos' : 'neg'}">${m.qty > 0 ? '+' : ''}${fmtN(m.qty)}</span></li>`).join('') : '<li><span class="pf-hint">No movements yet.</span></li>';
   } catch {}
 }
-function openProductForm(id) {
+async function openProductForm(id) {
   const p = id ? PRODUCTS.find(x => x.id === id) : null;
-  if (!p && !WH.some(w => w.active)) { toast('Add a warehouse first in Settings → Warehouses.', 'error'); return; }
+  if (!p && !WH.some(w => w.active)) { toast('Add a warehouse first on the Warehouses page.', 'error'); return; }
+  if (!p) await Promise.all(WH.filter(w => w.active).map(w => getLocs(w.id)));
+  const inputStyle = 'height:40px;border:1.5px solid var(--border);border-radius:9px;padding:0 10px;font:inherit;min-width:0;width:100%';
   openPanel(p ? 'Edit product' : 'Add product', p ? p.sku : 'Enter the product and how many you have now', `
     <div class="pf-row"><div class="pf"><label for="pp-sku">SKU / code</label><input id="pp-sku" value="${H(p ? p.sku : '')}" placeholder="e.g. WC-HUB-01"></div>
       <div class="pf"><label for="pp-unit">Unit</label><input id="pp-unit" value="${H(p ? p.unit : 'pcs')}"></div></div>
@@ -2390,9 +2458,10 @@ function openProductForm(id) {
       <div class="pf"><label for="pp-val">Unit value (AED)</label><input id="pp-val" type="number" min="0" step="0.01" value="${p ? p.unit_value : 0}"></div></div>
     ${p ? `<div class="pf"><label for="pp-active">Status</label><select id="pp-active"><option value="1" ${p.active ? 'selected' : ''}>Active</option><option value="0" ${p.active ? '' : 'selected'}>Inactive (hidden from new orders)</option></select></div>`
       : `<div class="p-sec"><i class="fa fa-cubes"></i> Opening stock (current quantity)</div>
-         ${WH.filter(w => w.active).map(w => `<div class="pf-row" style="align-items:center"><label for="pp-o-${w.id}" style="font-size:13px">${H(w.name)}</label>
-           <input id="pp-o-${w.id}" class="pp-open" data-wh="${w.id}" type="number" min="0" value="0" style="height:40px;border:1.5px solid var(--border);border-radius:9px;padding:0 10px;font:inherit"></div>`).join('')}
-         <p class="pf-hint">Recorded once as the starting balance. Later changes go through Adjust stock.</p>`}
+         ${WH.filter(w => w.active).map(w => `<div style="margin-bottom:10px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:5px">${H(w.name)}</label>
+           <div class="pf-row"><input class="pp-open" data-wh="${w.id}" type="number" min="0" value="0" aria-label="Quantity in ${H(w.name)}" style="${inputStyle}">
+           <select class="pp-open-loc" data-wh="${w.id}" aria-label="Location in ${H(w.name)}" style="${inputStyle}">${locOptions(w.id, '')}</select></div></div>`).join('')}
+         <p class="pf-hint">Recorded once as the starting balance, in the chosen location. Later changes go through Adjust stock.</p>`}
     <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
       <button class="pbtn primary" onclick="saveProduct(${p ? p.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${p ? 'Save changes' : 'Add product'}</button></div>`);
 }
@@ -2400,7 +2469,8 @@ async function saveProduct(id, btn) {
   const body = {sku: val('pp-sku'), name: val('pp-name'), unit: val('pp-unit'), category: val('pp-cat'), min_qty: val('pp-min'), unit_value: val('pp-val')};
   if (!body.sku.trim() || !body.name.trim()) { toast('SKU and product name are required.', 'error'); return; }
   if (id) body.active = val('pp-active') === '1';
-  else body.opening = [...document.querySelectorAll('.pp-open')].map(i => ({warehouse_id: i.dataset.wh, qty: i.value}));
+  else body.opening = [...document.querySelectorAll('.pp-open')].map(i => ({warehouse_id: i.dataset.wh, qty: i.value,
+    location_id: (document.querySelector('.pp-open-loc[data-wh="' + i.dataset.wh + '"]') || {}).value || null}));
   await busy(btn, async () => {
     await api('/api/products' + (id ? '/' + id : ''), {method: id ? 'PUT' : 'POST', json: body});
     closePanel(); toast(id ? 'Product updated.' : 'Product added.'); loadProducts();
@@ -2413,9 +2483,12 @@ async function ensureProducts() { if (!PRODUCTS.length || val('inv-wh')) { try {
 async function openAdjust(pid) {
   await ensureProducts();
   if (!PRODUCTS.length) { toast('Add a product first.', 'error'); return; }
+  const wid = val('inv-wh') || ((WH.find(w => w.active) || {}).id || '');
+  await getLocs(wid);
   openPanel('Adjust stock', 'Recount, damage, or new stock received', `
     <div class="pf"><label for="aj-p">Product</label><select id="aj-p">${productOptions(pid)}</select></div>
-    <div class="pf"><label for="aj-w">Warehouse</label><select id="aj-w">${whOptions(val('inv-wh'))}</select></div>
+    <div class="pf-row"><div class="pf"><label for="aj-w">Warehouse</label><select id="aj-w" onchange="fillLocSelect('aj-w','aj-l')">${whOptions(wid)}</select></div>
+      <div class="pf"><label for="aj-l">Location</label><select id="aj-l">${locOptions(wid, '')}</select></div></div>
     <div class="pf-row"><div class="pf"><label for="aj-dir">Change</label><select id="aj-dir"><option value="1">Add (+)</option><option value="-1">Remove (−)</option></select></div>
       <div class="pf"><label for="aj-q">Quantity</label><input id="aj-q" type="number" min="1" value="1"></div></div>
     <div class="pf"><label for="aj-r">Reason</label><select id="aj-r"><option>New stock received</option><option>Stock count correction</option><option>Damaged</option><option>Lost</option><option>Other</option></select></div>
@@ -2426,28 +2499,34 @@ async function saveAdjust(btn) {
   const q = parseInt(val('aj-q'), 10);
   if (!val('aj-p') || !val('aj-w') || !(q > 0)) { toast('Choose a product, a warehouse and a quantity above zero.', 'error'); return; }
   await busy(btn, async () => {
-    await api('/api/stock/adjust', {json: {product_id: val('aj-p'), warehouse_id: val('aj-w'), qty: q * parseInt(val('aj-dir'), 10), reason: val('aj-r'), note: val('aj-n')}});
+    await api('/api/stock/adjust', {json: {product_id: val('aj-p'), warehouse_id: val('aj-w'), location_id: val('aj-l') || null,
+      qty: q * parseInt(val('aj-dir'), 10), reason: val('aj-r'), note: val('aj-n')}});
     closePanel(); toast('Stock adjusted.'); loadProducts();
   });
 }
 async function openTransfer(pid) {
   await ensureProducts();
-  if (WH.filter(w => w.active).length < 2) { toast('You need at least two warehouses to transfer stock.', 'error'); return; }
-  openPanel('Transfer stock', 'Move stock between warehouses', `
+  if (!WH.some(w => w.active)) { toast('Add a warehouse first.', 'error'); return; }
+  const wid = val('inv-wh') || ((WH.find(w => w.active) || {}).id || '');
+  await getLocs(wid);
+  openPanel('Move / transfer stock', 'Between locations in a warehouse, or to another warehouse', `
     <div class="pf"><label for="tr-p">Product</label><select id="tr-p">${productOptions(pid)}</select></div>
-    <div class="pf"><label for="tr-f">From</label><select id="tr-f">${whOptions('')}</select></div>
-    <div class="pf"><label for="tr-t">To</label><select id="tr-t">${whOptions('')}</select></div>
+    <div class="pf-row"><div class="pf"><label for="tr-f">From warehouse</label><select id="tr-f" onchange="fillLocSelect('tr-f','tr-fl')">${whOptions(wid)}</select></div>
+      <div class="pf"><label for="tr-fl">From location</label><select id="tr-fl">${locOptions(wid, '')}</select></div></div>
+    <div class="pf-row"><div class="pf"><label for="tr-t">To warehouse</label><select id="tr-t" onchange="fillLocSelect('tr-t','tr-tl')">${whOptions(wid)}</select></div>
+      <div class="pf"><label for="tr-tl">To location</label><select id="tr-tl">${locOptions(wid, '')}</select></div></div>
     <div class="pf"><label for="tr-q">Quantity</label><input id="tr-q" type="number" min="1" value="1"></div>
     <div class="pf"><label for="tr-n">Note (optional)</label><input id="tr-n"></div>
-    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="saveTransfer(this)"><i class="fa fa-right-left"></i> Transfer</button></div>`);
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="saveTransfer(this)"><i class="fa fa-right-left"></i> Move stock</button></div>`);
 }
 async function saveTransfer(btn) {
   const q = parseInt(val('tr-q'), 10);
-  if (!val('tr-p') || !val('tr-f') || !val('tr-t') || !(q > 0)) { toast('Fill in product, both warehouses and quantity.', 'error'); return; }
-  if (val('tr-f') === val('tr-t')) { toast('Choose two different warehouses.', 'error'); return; }
+  if (!val('tr-p') || !val('tr-f') || !val('tr-t') || !(q > 0)) { toast('Fill in product, warehouses and quantity.', 'error'); return; }
+  if (val('tr-f') === val('tr-t') && val('tr-fl') === val('tr-tl')) { toast('Choose a different destination location or warehouse.', 'error'); return; }
   await busy(btn, async () => {
-    await api('/api/stock/transfer', {json: {product_id: val('tr-p'), from_id: val('tr-f'), to_id: val('tr-t'), qty: q, note: val('tr-n')}});
-    closePanel(); toast('Stock transferred.'); loadProducts();
+    await api('/api/stock/transfer', {json: {product_id: val('tr-p'), from_id: val('tr-f'), to_id: val('tr-t'),
+      from_location_id: val('tr-fl') || null, to_location_id: val('tr-tl') || null, qty: q, note: val('tr-n')}});
+    closePanel(); toast(val('tr-f') === val('tr-t') ? 'Stock moved.' : 'Stock transferred.'); loadProducts();
   });
 }
 
@@ -2519,8 +2598,10 @@ function stepsBar(status) {
 async function openOrder(id) {
   let o;
   try { o = await api('/api/orders/' + id); } catch (e) { toast(e.message, 'error'); return; }
-  const itemsTable = (editable) => `<table class="mini"><thead><tr><th>Item</th><th class="num">Requested</th><th class="num">${editable ? 'Picked' : (o.status === 'pick_list' || o.status === 'cancelled' ? '' : 'Picked')}</th></tr></thead><tbody>
-    ${o.items.map(i => `<tr><td>${H(i.name)}<span class="sub">${H(i.sku)}</span></td><td class="num">${fmtN(i.qty_requested)} ${H(i.unit || '')}</td>
+  if (o.status === 'shipped') await getLocs(o.warehouse_id);
+  const binsTxt = i => (i.bins || []).map(b => `<span class="bin-chip">${H(b.code)} ×${fmtN(b.qty)}</span>`).join(' ');
+  const itemsTable = (editable) => `<table class="mini"><thead><tr><th>Item</th><th>${o.status === 'pick_list' ? 'Pick from' : (o.status === 'cancelled' ? '' : 'Picked from')}</th><th class="num">Requested</th><th class="num">${editable ? 'Picked' : (o.status === 'pick_list' || o.status === 'cancelled' ? '' : 'Picked')}</th></tr></thead><tbody>
+    ${o.items.map(i => `<tr><td>${H(i.name)}<span class="sub">${H(i.sku)}</span></td><td>${o.status === 'cancelled' ? '' : binsTxt(i)}</td><td class="num">${fmtN(i.qty_requested)} ${H(i.unit || '')}</td>
       <td class="num">${editable ? `<input type="number" class="pk-q" data-item="${i.id}" min="0" max="${i.qty_requested}" value="${i.qty_requested}" aria-label="Picked quantity for ${H(i.name)}">` : (i.qty_picked != null ? fmtN(i.qty_picked) : '')}</td></tr>`).join('')}
   </tbody></table>`;
   let action = '';
@@ -2543,6 +2624,7 @@ async function openOrder(id) {
         <button class="pbtn success" onclick="confirmShip(${o.id}, this)"><i class="fa fa-truck-fast"></i> Create shipment</button></div>`;
   else if (o.status === 'shipped' && o.shipment_status === 'Returned' && !o.return_action && can('returns.receive'))
     action = `<div class="p-sec"><i class="fa fa-rotate-left"></i> Shipment returned</div><p class="pf-hint">Put the items back into stock, or record them as scrapped.</p>
+      <div class="pf"><label for="rt-l">Restock into location</label><select id="rt-l">${locOptions(o.warehouse_id, '')}</select></div>
       <div class="p-actions"><button class="pbtn" onclick="receiveReturn(${o.id}, 'scrap', this)"><i class="fa fa-trash-can"></i> Scrap</button>
         <button class="pbtn success" onclick="receiveReturn(${o.id}, 'restock', this)"><i class="fa fa-box-archive"></i> Restock</button></div>`;
   const canCancel = ['pick_list', 'picked', 'packed'].includes(o.status) && can('orders.cancel') &&
@@ -2583,7 +2665,7 @@ function confirmShip(id, btn) {
   orderAction(id, 'ship', {awb_no: val('sh-a'), cost: val('sh-c'), date: val('sh-d')}, btn, 'Shipment created and stock deducted.').then(loadData);
 }
 function receiveReturn(id, action, btn) {
-  orderAction(id, 'return', {action}, btn, action === 'restock' ? 'Items returned to stock.' : 'Return recorded as scrapped.');
+  orderAction(id, 'return', {action, location_id: val('rt-l') || null}, btn, action === 'restock' ? 'Items returned to stock.' : 'Return recorded as scrapped.');
 }
 function cancelOrder(id, btn) {
   const reason = prompt('Why is this order being cancelled? (optional)');
@@ -2596,8 +2678,8 @@ async function printPackingList(id) {
     <div class="meta"><div><b>From:</b> ${H(o.warehouse)}</div><div><b>To:</b> ${H(o.destination)}</div>
       <div><b>Contact:</b> ${H(o.contact || '—')}</div><div><b>Requested by:</b> ${H(o.requester || '—')}</div>
       <div><b>Boxes:</b> ${o.boxes || '—'}</div><div><b>Weight:</b> ${o.weight ? o.weight + ' kg' : '—'}</div></div>
-    <table><thead><tr><th>#</th><th>SKU</th><th>Item</th><th>Qty</th><th>Checked</th></tr></thead><tbody>
-      ${o.items.map((i, n) => `<tr><td>${n + 1}</td><td>${H(i.sku)}</td><td>${H(i.name)}</td><td>${i.qty_picked != null ? i.qty_picked : i.qty_requested} ${H(i.unit || '')}</td><td></td></tr>`).join('')}
+    <table><thead><tr><th>#</th><th>SKU</th><th>Item</th><th>Location</th><th>Qty</th><th>Checked</th></tr></thead><tbody>
+      ${o.items.map((i, n) => `<tr><td>${n + 1}</td><td>${H(i.sku)}</td><td>${H(i.name)}</td><td>${(i.bins || []).map(b => H(b.code) + ' ×' + b.qty).join(', ')}</td><td>${i.qty_picked != null ? i.qty_picked : i.qty_requested} ${H(i.unit || '')}</td><td></td></tr>`).join('')}
     </tbody></table>${o.notes ? `<p><b>Notes:</b> ${H(o.notes)}</p>` : ''}`;
   window.print();
 }
@@ -2615,9 +2697,8 @@ async function afterShipmentUpdate(rec) {
   try {
     const o = await api('/api/orders/' + rec.order_id);
     if (o.return_action) return;
-    if (confirm('This shipment came from ' + o.number + '. Put the returned items back into stock?\n\nOK = restock · Cancel = decide later in Orders')) {
-      await api('/api/orders/' + o.id + '/return', {json: {action: 'restock'}});
-      toast('Items returned to stock.');
+    if (confirm('This shipment came from ' + o.number + '. Open it now to restock the returned items into a location?')) {
+      navigate('orders'); openOrder(o.id);
     }
   } catch (e) { toast(e.message, 'error'); }
 }
