@@ -830,6 +830,7 @@ th.num{text-align:right}
 .mini th:first-child,.mini td:first-child{display:table-cell !important}
 .mini td,.mini th{white-space:normal}
 .u-row > .badge{justify-self:start}
+tr.row-inactive td{opacity:.55}
 .mini th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
 .mini td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
 .mini input{width:72px;height:36px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font:inherit;font-size:14px;text-align:right}
@@ -935,6 +936,10 @@ th.num{text-align:right}
     <div class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
       <div class="nav-icon"><i class="fa fa-chart-pie"></i></div>
       Dashboard
+    </div>
+    <div class="nav-item" id="nav-warehouses" onclick="navigate('warehouses')">
+      <div class="nav-icon"><i class="fa fa-warehouse"></i></div>
+      Warehouses
     </div>
     <div class="nav-item" id="nav-shipment" onclick="navigate('shipment')">
       <div class="nav-icon"><i class="fa fa-box"></i></div>
@@ -1213,6 +1218,36 @@ th.num{text-align:right}
   </div>
 
   <!-- ───────────  SETTINGS  ─────────── -->
+  <!-- ───────────  WAREHOUSES  ─────────── -->
+  <div id="page-warehouses" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 4px 14px rgba(14,165,233,.35)"><i class="fa fa-warehouse"></i></div>
+        <div class="page-header-text"><h2>Warehouses</h2><p>Locations and the stock held in each</p></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-warehouse"></i></div><h3>Warehouses</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="whs-count"></span></div>
+      </div>
+      <div class="set-body" data-perm="settings" style="border-bottom:1px solid var(--border)">
+        <div class="set-grid-3">
+          <input type="text" id="whs-name" placeholder="Warehouse name" aria-label="Warehouse name">
+          <input type="text" id="whs-address" placeholder="Address / city" aria-label="Address">
+          <input type="text" id="whs-manager" placeholder="Responsible person" aria-label="Responsible person">
+          <button type="button" class="mail-add-btn" id="whs-add-btn" onclick="addWarehouse()"><i class="fa fa-plus"></i> Add</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Warehouse</th><th>Address / city</th><th>Responsible</th><th class="num">Products</th><th class="num">Units on hand</th><th class="num">Stock value (AED)</th><th>Status</th></tr></thead>
+          <tbody id="whs-body"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- ───────────  ORDERS  ─────────── -->
   <div id="page-orders" class="page">
     <div class="page-header">
@@ -1288,7 +1323,7 @@ th.num{text-align:right}
         <div class="ph-icon" style="background:linear-gradient(135deg,#64748b,#475569);box-shadow:0 4px 14px rgba(71,85,105,.3)"><i class="fa fa-gear"></i></div>
         <div class="page-header-text">
           <h2>Settings</h2>
-          <p>Users, warehouses and notifications</p>
+          <p>Users and notifications</p>
         </div>
       </div>
     </div>
@@ -1338,22 +1373,6 @@ th.num{text-align:right}
         <div class="box-list" id="usr-list"><div class="u-row"><span class="set-count">Loading…</span></div></div>
       </div>
     </div>
-
-    <div class="table-card set-card" style="margin-top:20px">
-      <div class="table-hdr">
-        <div class="section-title"><div class="s-icon"><i class="fa fa-warehouse"></i></div><h3>Warehouses</h3></div>
-        <div class="table-hdr-right"><span class="rec-count" id="whs-count"></span></div>
-      </div>
-      <div class="set-body">
-        <div class="set-grid-3">
-          <input type="text" id="whs-name" placeholder="Warehouse name" aria-label="Warehouse name">
-          <input type="text" id="whs-address" placeholder="Address / city" aria-label="Address">
-          <input type="text" id="whs-manager" placeholder="Responsible person" aria-label="Responsible person">
-          <button type="button" class="mail-add-btn" id="whs-add-btn" onclick="addWarehouse()"><i class="fa fa-plus"></i> Add</button>
-        </div>
-        <div class="box-list" id="whs-list"><div class="u-row"><span class="set-count">Loading…</span></div></div>
-      </div>
-    </div>
   </div>
 
   <!-- generic side panel (orders, products, stock) -->
@@ -1379,6 +1398,10 @@ th.num{text-align:right}
   <div class="bn-item active" id="bn-dashboard" onclick="navigate('dashboard')">
     <i class="fa fa-chart-pie"></i>
     <span>Dashboard</span>
+  </div>
+  <div class="bn-item" id="bn-warehouses" onclick="navigate('warehouses')">
+    <i class="fa fa-warehouse"></i>
+    <span>Stores</span>
   </div>
   <div class="bn-item" id="bn-shipment" onclick="navigate('shipment')">
     <i class="fa fa-box"></i>
@@ -1430,7 +1453,8 @@ function navigate(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-'  + page).classList.add('active');
   if (page === 'dashboard') updateDashboard();
-  if (page === 'settings' && can('settings')) { loadRecipients(); loadUsers(); renderWarehousesAdmin(); }
+  if (page === 'settings' && can('settings')) { loadRecipients(); loadUsers(); }
+  if (page === 'warehouses') loadWarehousePage();
   if (page === 'orders') loadOrders();
   if (page === 'inventory') loadProducts();
   closeSidebar();
@@ -2176,20 +2200,45 @@ async function loadWarehouses() {
   const sel = document.getElementById('inv-wh'), cur = sel.value;
   sel.innerHTML = '<option value="">All warehouses</option>' + WH.filter(w => w.active).map(w => `<option value="${w.id}">${H(w.name)}</option>`).join('');
   sel.value = cur;
-  if (document.getElementById('page-settings').classList.contains('active')) renderWarehousesAdmin();
+  if (document.getElementById('page-warehouses').classList.contains('active')) renderWarehousesAdmin();
 }
 const whOptions = (sel, placeholder = 'Choose warehouse') =>
   `<option value="">${placeholder}</option>` + WH.filter(w => w.active).map(w => `<option value="${w.id}" ${String(sel) === String(w.id) ? 'selected' : ''}>${H(w.name)}</option>`).join('');
+async function loadWarehousePage() {
+  await loadWarehouses();
+  try { PRODUCTS = await api('/api/products'); } catch {}
+  renderWarehousesAdmin();
+}
+function whStock(id) {
+  let products = 0, units = 0, value = 0;
+  PRODUCTS.forEach(p => (p.by_warehouse || []).forEach(b => {
+    if (b.warehouse_id === id && b.on_hand) { products++; units += b.on_hand; value += b.on_hand * (p.unit_value || 0); }
+  }));
+  return {products, units, value};
+}
 function renderWarehousesAdmin() {
-  const list = document.getElementById('whs-list');
   document.getElementById('whs-count').textContent = WH.filter(w => w.active).length + ' active';
-  list.innerHTML = WH.length ? WH.map(w => `
-    <div class="u-row ${w.active ? '' : 'inactive'}">
-      <div class="who"><b>${H(w.name)}</b><small>${H([w.address, w.manager && 'Responsible: ' + w.manager].filter(Boolean).join(' · ') || 'No address')}</small></div>
-      <span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span>
-      <div class="acts"><button onclick="editWarehouse(${w.id})">Edit</button>
-        <button onclick="toggleWarehouse(${w.id})">${w.active ? 'Deactivate' : 'Activate'}</button></div>
-    </div>`).join('') : '<div class="u-row"><span class="set-count">No warehouses yet. Add your first one above.</span></div>';
+  document.getElementById('whs-body').innerHTML = WH.length ? WH.map(w => {
+    const st = whStock(w.id);
+    return `<tr onclick="openWarehouse(${w.id})" class="${w.active ? '' : 'row-inactive'}"><td><b>${H(w.name)}</b></td><td>${H(w.address || '—')}</td><td>${H(w.manager || '—')}</td>
+      <td class="num">${fmtN(st.products)}</td><td class="num">${fmtN(st.units)}</td><td class="num">${fmtN(Math.round(st.value))}</td>
+      <td><span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span></td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="7">${can('settings') ? 'No warehouses yet. Add your first one above.' : 'No warehouses yet.'}</td></tr>`;
+}
+function openWarehouse(id) {
+  const w = WH.find(x => x.id === id); if (!w) return;
+  const rows = PRODUCTS.map(p => ({p, b: (p.by_warehouse || []).find(x => x.warehouse_id === id)})).filter(x => x.b && (x.b.on_hand || x.b.reserved));
+  const st = whStock(id);
+  openPanel(w.name, [w.address, w.manager && 'Responsible: ' + w.manager].filter(Boolean).join(' · '), `
+    <span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span>
+    <dl class="kv" style="margin-top:14px"><dt>Products in stock</dt><dd>${fmtN(st.products)}</dd><dt>Units on hand</dt><dd>${fmtN(st.units)}</dd>
+      <dt>Stock value</dt><dd>AED ${fmtN(Math.round(st.value))}</dd></dl>
+    <div class="p-sec"><i class="fa fa-cubes"></i> Stock in this warehouse</div>
+    ${rows.length ? `<table class="mini"><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
+      ${rows.map(({p, b}) => `<tr><td>${H(p.name)}<span class="sub">${H(p.sku)}</span></td><td class="num">${fmtN(b.on_hand)}</td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>`).join('')}
+    </tbody></table>` : '<p class="pf-hint">No stock in this warehouse yet.</p>'}
+    ${can('settings') ? `<div class="p-actions"><button class="pbtn" onclick="toggleWarehouse(${w.id})">${w.active ? '<i class="fa fa-ban"></i> Deactivate' : '<i class="fa fa-check"></i> Activate'}</button>
+      <button class="pbtn primary" onclick="editWarehouse(${w.id})"><i class="fa fa-pen"></i> Edit</button></div>` : ''}`);
 }
 async function addWarehouse() {
   const name = val('whs-name').trim();
@@ -2221,7 +2270,7 @@ async function toggleWarehouse(id) {
   if (w.active && !confirm('Deactivate ' + w.name + '? It won’t be available for new orders or stock moves.')) return;
   await busy(null, async () => {
     await api('/api/warehouses/' + id, {method: 'PUT', json: {name: w.name, address: w.address, manager: w.manager, active: !w.active}});
-    toast(w.active ? 'Warehouse deactivated.' : 'Warehouse activated.'); await loadWarehouses(); renderWarehousesAdmin();
+    toast(w.active ? 'Warehouse deactivated.' : 'Warehouse activated.'); closePanel(); await loadWarehouses(); renderWarehousesAdmin();
   });
 }
 
