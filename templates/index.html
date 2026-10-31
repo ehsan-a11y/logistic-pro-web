@@ -830,6 +830,12 @@ th.num{text-align:right}
 .mini th:first-child,.mini td:first-child{display:table-cell !important}
 .mini td,.mini th{white-space:normal}
 .u-row > .badge{justify-self:start}
+.loc-head,.loc-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 36px;gap:8px;align-items:center}
+.loc-head{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.loc-row{margin-bottom:8px}
+.loc-row input{height:40px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%;text-transform:uppercase}
+.loc-row input::placeholder{text-transform:none}
+.loc-row input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
 .bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
 tr.row-inactive td{opacity:.55}
 .mini th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
@@ -1226,24 +1232,36 @@ tr.row-inactive td{opacity:.55}
         <div class="ph-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 4px 14px rgba(14,165,233,.35)"><i class="fa fa-warehouse"></i></div>
         <div class="page-header-text"><h2>Warehouses</h2><p>Locations and the stock held in each</p></div>
       </div>
+      <div class="hdr-actions">
+        <button class="add-btn alt" data-perm="stock.adjust" onclick="openLocationForm()"><i class="fa fa-table-cells"></i> Add Location</button>
+        <button class="add-btn" data-perm="settings" onclick="openWarehouseForm()"><i class="fa fa-circle-plus"></i> Add Warehouse</button>
+      </div>
     </div>
     <div class="table-card">
       <div class="table-hdr">
         <div class="section-title"><div class="s-icon"><i class="fa fa-warehouse"></i></div><h3>Warehouses</h3></div>
         <div class="table-hdr-right"><span class="rec-count" id="whs-count"></span></div>
       </div>
-      <div class="set-body" data-perm="settings" style="border-bottom:1px solid var(--border)">
-        <div class="set-grid-3">
-          <input type="text" id="whs-name" placeholder="Warehouse name" aria-label="Warehouse name">
-          <input type="text" id="whs-address" placeholder="Address / city" aria-label="Address">
-          <input type="text" id="whs-manager" placeholder="Responsible person" aria-label="Responsible person">
-          <button type="button" class="mail-add-btn" id="whs-add-btn" onclick="addWarehouse()"><i class="fa fa-plus"></i> Add</button>
-        </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Warehouse</th><th>Address / city</th><th>Responsible</th><th class="num">Locations</th><th class="num">Products</th><th class="num">Units on hand</th><th class="num">Stock value (AED)</th><th>Status</th></tr></thead>
+          <tbody id="whs-body"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="table-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-table-cells"></i></div><h3>Storage Locations</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="loc-count"></span></div>
+      </div>
+      <div class="mod-tools">
+        <input type="search" id="loc-search" placeholder="Search code, zone, rack…" aria-label="Search locations" oninput="renderLocTable()">
+        <select id="loc-wh" aria-label="Warehouse" onchange="renderLocTable()"><option value="">All warehouses</option></select>
       </div>
       <div class="tbl-wrap">
         <table class="clickable">
-          <thead><tr><th>Warehouse</th><th>Address / city</th><th>Responsible</th><th class="num">Products</th><th class="num">Units on hand</th><th class="num">Stock value (AED)</th><th>Status</th></tr></thead>
-          <tbody id="whs-body"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+          <thead><tr><th>Code</th><th>Warehouse</th><th>Zone</th><th>Rack</th><th>Shelf</th><th>Bin</th><th>Description</th><th class="num">Units</th><th>Status</th></tr></thead>
+          <tbody id="loc-body"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2205,10 +2223,22 @@ async function loadWarehouses() {
 }
 const whOptions = (sel, placeholder = 'Choose warehouse') =>
   `<option value="">${placeholder}</option>` + WH.filter(w => w.active).map(w => `<option value="${w.id}" ${String(sel) === String(w.id) ? 'selected' : ''}>${H(w.name)}</option>`).join('');
+let ALLLOCS = [];
 async function loadWarehousePage() {
   await loadWarehouses();
   try { PRODUCTS = await api('/api/products'); } catch {}
+  await loadAllLocs();
   renderWarehousesAdmin();
+}
+async function loadAllLocs() {
+  const lists = await Promise.all(WH.map(w => api('/api/warehouses/' + w.id + '/locations').then(d => {
+    LOCS[w.id] = d.locations; return d.locations.map(l => Object.assign({warehouse: w.name}, l));
+  }).catch(() => [])));
+  ALLLOCS = lists.flat();
+  const sel = document.getElementById('loc-wh'), cur = sel.value;
+  sel.innerHTML = '<option value="">All warehouses</option>' + WH.map(w => `<option value="${w.id}">${H(w.name)}</option>`).join('');
+  sel.value = cur;
+  renderLocTable();
 }
 function whStock(id) {
   let products = 0, units = 0, value = 0;
@@ -2221,10 +2251,106 @@ function renderWarehousesAdmin() {
   document.getElementById('whs-count').textContent = WH.filter(w => w.active).length + ' active';
   document.getElementById('whs-body').innerHTML = WH.length ? WH.map(w => {
     const st = whStock(w.id);
+    const nloc = (LOCS[w.id] || []).filter(l => l.active).length;
     return `<tr onclick="openWarehouse(${w.id})" class="${w.active ? '' : 'row-inactive'}"><td><b>${H(w.name)}</b></td><td>${H(w.address || '—')}</td><td>${H(w.manager || '—')}</td>
-      <td class="num">${fmtN(st.products)}</td><td class="num">${fmtN(st.units)}</td><td class="num">${fmtN(Math.round(st.value))}</td>
+      <td class="num">${fmtN(nloc)}</td><td class="num">${fmtN(st.products)}</td><td class="num">${fmtN(st.units)}</td><td class="num">${fmtN(Math.round(st.value))}</td>
       <td><span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span></td></tr>`;
-  }).join('') : `<tr class="empty-row"><td colspan="7">${can('settings') ? 'No warehouses yet. Add your first one above.' : 'No warehouses yet.'}</td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="8">${can('settings') ? 'No warehouses yet. Click “Add Warehouse” to create your first one.' : 'No warehouses yet.'}</td></tr>`;
+}
+function renderLocTable() {
+  const q = (val('loc-search') || '').toLowerCase(), wid = val('loc-wh');
+  const rows = ALLLOCS.filter(l => !wid || String(l.warehouse_id) === wid)
+    .filter(l => !q || [l.code, l.zone, l.rack, l.shelf, l.bin, l.description, l.warehouse].join(' ').toLowerCase().includes(q));
+  document.getElementById('loc-count').textContent = rows.length + ' location' + (rows.length !== 1 ? 's' : '');
+  document.getElementById('loc-body').innerHTML = rows.length ? rows.map(l => `
+    <tr onclick="openWarehouse(${l.warehouse_id})" class="${l.active ? '' : 'row-inactive'}"><td><span class="bin-chip">${H(l.code)}</span></td><td>${H(l.warehouse)}</td>
+      <td>${H(l.zone || '—')}</td><td>${H(l.rack || '—')}</td><td>${H(l.shelf || '—')}</td><td>${H(l.bin || '—')}</td><td>${H(l.description || '')}</td>
+      <td class="num">${fmtN(l.units)}</td><td><span class="badge ${l.active ? 'badge-ok' : 'badge-muted'}">${l.active ? 'Active' : 'Inactive'}</span></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="9">${ALLLOCS.length ? 'No locations match.' : (can('stock.adjust') ? 'No storage locations yet. Click “Add Location” or add them when creating a warehouse.' : 'No storage locations yet.')}</td></tr>`;
+}
+
+// shared “locations” block used by the Add Warehouse and Add Location forms
+function locRowsBlock() {
+  return `
+    <div class="loc-head" aria-hidden="true"><span>Zone</span><span>Rack</span><span>Shelf</span><span>Bin</span><span></span></div>
+    <div id="lr-list"></div>
+    <button type="button" class="pbtn" style="width:100%" onclick="addLocRow()"><i class="fa fa-plus"></i> Add location</button>
+    <p class="pf-hint" style="margin-top:8px">Fill in only the levels you use, e.g. Zone A · Rack 01 · Shelf 3 · Bin B → <b>A-01-3-B</b>.</p>
+    <div class="p-sec"><i class="fa fa-layer-group"></i> Or create a range</div>
+    <div class="loc-row"><input id="rg-z" placeholder="Zone" aria-label="Range zone"><input id="rg-r" placeholder="Rack" aria-label="Range rack">
+      <input id="rg-s" placeholder="1-5" aria-label="Range shelves"><input id="rg-b" placeholder="A-D" aria-label="Range bins"><span></span></div>
+    <p class="pf-hint">Shelves and bins accept ranges (1-5, A-D) or lists (A,B,C). Zone A, Rack 02, Shelves 1-5, Bins A-D creates 20 locations.</p>`;
+}
+function addLocRow(z = '', r = '', s = '', b = '') {
+  const div = document.createElement('div');
+  div.className = 'loc-row lr';
+  div.innerHTML = `<input class="lr-z" placeholder="A" aria-label="Zone" value="${H(z)}"><input class="lr-r" placeholder="01" aria-label="Rack" value="${H(r)}">
+    <input class="lr-s" placeholder="3" aria-label="Shelf" value="${H(s)}"><input class="lr-b" placeholder="B" aria-label="Bin" value="${H(b)}">
+    <button type="button" class="icon-btn" aria-label="Remove location row" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>`;
+  document.getElementById('lr-list').appendChild(div);
+}
+async function saveLocationsFor(wid) {
+  let made = 0; const errs = [];
+  for (const row of document.querySelectorAll('#lr-list .lr')) {
+    const body = {zone: row.querySelector('.lr-z').value, rack: row.querySelector('.lr-r').value, shelf: row.querySelector('.lr-s').value, bin: row.querySelector('.lr-b').value};
+    if (![body.zone, body.rack, body.shelf, body.bin].some(v => v.trim())) continue;
+    try { await api('/api/warehouses/' + wid + '/locations', {json: body}); made++; } catch (e) { errs.push(e.message); }
+  }
+  const rg = {zone: val('rg-z'), rack: val('rg-r'), shelves: val('rg-s'), bins: val('rg-b')};
+  if ((rg.shelves || '').trim() || (rg.bins || '').trim()) {
+    try { const d = await api('/api/warehouses/' + wid + '/locations/generate', {json: rg}); made += d.created; if (d.skipped) errs.push(d.skipped + ' already existed'); }
+    catch (e) { errs.push(e.message); }
+  }
+  return {made, errs};
+}
+
+function openWarehouseForm(id) {
+  const w = id ? WH.find(x => x.id === id) : null;
+  openPanel(w ? 'Edit warehouse' : 'Add Warehouse', w ? w.name : 'Warehouse details and storage locations', `
+    <div class="pf"><label for="wf-name">Warehouse Name</label><input id="wf-name" value="${H(w ? w.name : '')}" placeholder="e.g. Dubai main store"></div>
+    <div class="pf"><label for="wf-address">Address / City</label><input id="wf-address" value="${H(w ? w.address || '' : '')}" placeholder="e.g. Al Quoz, Dubai"></div>
+    <div class="pf"><label for="wf-manager">Responsible Person</label><input id="wf-manager" value="${H(w ? w.manager || '' : '')}" placeholder="Name"></div>
+    ${can('stock.adjust') ? `<div class="p-sec"><i class="fa fa-table-cells"></i> ${w ? 'Add more locations' : 'Locations'}</div>${locRowsBlock()}` : ''}
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveWarehouseForm(${w ? w.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${w ? 'Save changes' : 'Save Warehouse'}</button></div>`);
+  if (can('stock.adjust')) addLocRow();
+}
+async function saveWarehouseForm(id, btn) {
+  const name = val('wf-name').trim();
+  if (!name) { toast('Enter the warehouse name.', 'error'); document.getElementById('wf-name').focus(); return; }
+  await busy(btn, async () => {
+    const w = id ? WH.find(x => x.id === id) : null;
+    const body = {name, address: val('wf-address'), manager: val('wf-manager')};
+    let wid = id;
+    if (id) await api('/api/warehouses/' + id, {method: 'PUT', json: Object.assign(body, {active: !!w.active})});
+    else wid = (await api('/api/warehouses', {json: body})).warehouse.id;
+    const r = can('stock.adjust') ? await saveLocationsFor(wid) : {made: 0, errs: []};
+    closePanel();
+    toast((id ? 'Warehouse updated' : 'Warehouse added') + (r.made ? ' with ' + r.made + ' location' + (r.made !== 1 ? 's' : '') : '') + '.' + (r.errs.length ? ' Note: ' + r.errs.join('; ') : ''), r.errs.length ? 'error' : undefined);
+    await loadWarehousePage();
+  });
+}
+function openLocationForm(wid) {
+  if (!WH.some(w => w.active)) { toast('Add a warehouse first.', 'error'); return; }
+  const def = wid || val('loc-wh') || (WH.find(w => w.active) || {}).id;
+  openPanel('Add Location', 'Zones, racks, shelves and bins', `
+    <div class="pf"><label for="lf-w">Warehouse</label><select id="lf-w">${whOptions(def)}</select></div>
+    <div class="p-sec"><i class="fa fa-table-cells"></i> Locations</div>
+    ${locRowsBlock()}
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveLocationForm(this)"><i class="fa fa-floppy-disk"></i> Save locations</button></div>`);
+  addLocRow();
+}
+async function saveLocationForm(btn) {
+  const wid = val('lf-w');
+  if (!wid) { toast('Choose a warehouse.', 'error'); return; }
+  await busy(btn, async () => {
+    const r = await saveLocationsFor(wid);
+    if (!r.made && !r.errs.length) { toast('Fill in at least one location (zone, rack, shelf or bin).', 'error'); return; }
+    closePanel();
+    toast(r.made + ' location' + (r.made !== 1 ? 's' : '') + ' added.' + (r.errs.length ? ' Note: ' + r.errs.join('; ') : ''), r.errs.length ? 'error' : undefined);
+    await loadWarehousePage();
+  });
 }
 let LOCS = {};
 async function getLocs(wid, force) {
@@ -2263,18 +2389,7 @@ async function openWarehouse(id) {
     ${L.locations.length || L.unassigned_units ? `<table class="mini"><thead><tr><th>Location</th><th class="num">Products</th><th class="num">Units</th><th></th></tr></thead><tbody>
       ${locRows}${L.unassigned_units ? `<tr><td><i>Unassigned</i><span class="sub">Not in a bin yet</span></td><td class="num">${fmtN(L.unassigned_products)}</td><td class="num">${fmtN(L.unassigned_units)}</td><td></td></tr>` : ''}
     </tbody></table>` : '<p class="pf-hint">No locations yet. Add zones, racks, shelves and bins below.</p>'}
-    ${canLoc ? `
-    <div class="p-sec"><i class="fa fa-plus"></i> Add a location</div>
-    <div class="pf-row"><div class="pf"><label for="lc-z">Zone</label><input id="lc-z" placeholder="A"></div><div class="pf"><label for="lc-r">Rack / aisle</label><input id="lc-r" placeholder="01"></div></div>
-    <div class="pf-row"><div class="pf"><label for="lc-s">Shelf</label><input id="lc-s" placeholder="3"></div><div class="pf"><label for="lc-b">Bin</label><input id="lc-b" placeholder="B"></div></div>
-    <div class="pf"><label for="lc-d">Description (optional)</label><input id="lc-d" placeholder="e.g. Devices, Returns"></div>
-    <p class="pf-hint">Fill in only the levels you use. The code is built automatically, e.g. A-01-3-B.</p>
-    <div class="p-actions"><button class="pbtn primary" onclick="addLoc(${id}, this)"><i class="fa fa-plus"></i> Add location</button></div>
-    <div class="p-sec"><i class="fa fa-layer-group"></i> Add a range</div>
-    <div class="pf-row"><div class="pf"><label for="lg-z">Zone</label><input id="lg-z" placeholder="A"></div><div class="pf"><label for="lg-r">Rack / aisle</label><input id="lg-r" placeholder="02"></div></div>
-    <div class="pf-row"><div class="pf"><label for="lg-s">Shelves</label><input id="lg-s" placeholder="1-5"></div><div class="pf"><label for="lg-b">Bins</label><input id="lg-b" placeholder="A-D"></div></div>
-    <p class="pf-hint">Example: zone A, rack 02, shelves 1-5, bins A-D creates A-02-1-A … A-02-5-D (20 locations).</p>
-    <div class="p-actions"><button class="pbtn" onclick="genLocs(${id}, this)"><i class="fa fa-layer-group"></i> Create range</button></div>` : ''}
+    ${canLoc ? `<div class="p-actions"><button class="pbtn" onclick="openLocationForm(${id})"><i class="fa fa-plus"></i> Add locations</button></div>` : ''}
     <div class="p-sec"><i class="fa fa-cubes"></i> Stock in this warehouse</div>
     ${rows.length ? `<table class="mini"><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
       ${rows.map(({p, b}) => `<tr><td>${H(p.name)}<span class="sub">${H(p.sku)}${(b.locations || []).length ? ' · ' + b.locations.map(x => H(x.code) + ' ×' + x.on_hand).join(', ') : ''}</span></td><td class="num">${fmtN(b.on_hand)}</td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>`).join('')}
@@ -2282,47 +2397,13 @@ async function openWarehouse(id) {
     ${can('settings') ? `<div class="p-actions"><button class="pbtn" onclick="toggleWarehouse(${w.id})">${w.active ? '<i class="fa fa-ban"></i> Deactivate' : '<i class="fa fa-check"></i> Activate'}</button>
       <button class="pbtn primary" onclick="editWarehouse(${w.id})"><i class="fa fa-pen"></i> Edit</button></div>` : ''}`);
 }
-async function addLoc(wid, btn) {
-  const body = {zone: val('lc-z'), rack: val('lc-r'), shelf: val('lc-s'), bin: val('lc-b'), description: val('lc-d')};
-  if (![body.zone, body.rack, body.shelf, body.bin].some(v => v && v.trim())) { toast('Enter at least a zone, rack, shelf or bin.', 'error'); return; }
-  await busy(btn, async () => {
-    const d = await api('/api/warehouses/' + wid + '/locations', {json: body});
-    toast('Location ' + d.code + ' added.'); await getLocs(wid, true); openWarehouse(wid);
-  });
-}
-async function genLocs(wid, btn) {
-  const body = {zone: val('lg-z'), rack: val('lg-r'), shelves: val('lg-s'), bins: val('lg-b')};
-  if (!body.shelves && !body.bins) { toast('Enter shelves and/or bins, e.g. 1-5 and A-D.', 'error'); return; }
-  await busy(btn, async () => {
-    const d = await api('/api/warehouses/' + wid + '/locations/generate', {json: body});
-    toast(d.created + ' location' + (d.created !== 1 ? 's' : '') + ' created' + (d.skipped ? ', ' + d.skipped + ' already existed' : '') + '.');
-    await getLocs(wid, true); openWarehouse(wid);
-  });
-}
 async function toggleLoc(lid, active, wid) {
   await busy(null, async () => {
     await api('/api/locations/' + lid, {method: 'PUT', json: {active: !!active}});
-    toast(active ? 'Location activated.' : 'Location deactivated.'); await getLocs(wid, true); openWarehouse(wid);
+    toast(active ? 'Location activated.' : 'Location deactivated.'); await getLocs(wid, true); openWarehouse(wid); loadAllLocs(); renderWarehousesAdmin();
   });
 }
-async function addWarehouse() {
-  const name = val('whs-name').trim();
-  if (!name) { toast('Enter a warehouse name.', 'error'); document.getElementById('whs-name').focus(); return; }
-  await busy(document.getElementById('whs-add-btn'), async () => {
-    await api('/api/warehouses', {json: {name, address: val('whs-address'), manager: val('whs-manager')}});
-    ['whs-name', 'whs-address', 'whs-manager'].forEach(id => document.getElementById(id).value = '');
-    toast('Warehouse added.'); await loadWarehouses(); renderWarehousesAdmin();
-  });
-}
-function editWarehouse(id) {
-  const w = WH.find(x => x.id === id); if (!w) return;
-  openPanel('Edit warehouse', w.name, `
-    <div class="pf"><label for="ew-name">Name</label><input id="ew-name" value="${H(w.name)}"></div>
-    <div class="pf"><label for="ew-address">Address / city</label><input id="ew-address" value="${H(w.address || '')}"></div>
-    <div class="pf"><label for="ew-manager">Responsible person</label><input id="ew-manager" value="${H(w.manager || '')}"></div>
-    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
-      <button class="pbtn primary" onclick="saveWarehouse(${id}, this)"><i class="fa fa-floppy-disk"></i> Save</button></div>`);
-}
+function editWarehouse(id) { openWarehouseForm(id); }
 async function saveWarehouse(id, btn) {
   const w = WH.find(x => x.id === id);
   await busy(btn, async () => {
@@ -2335,7 +2416,7 @@ async function toggleWarehouse(id) {
   if (w.active && !confirm('Deactivate ' + w.name + '? It won’t be available for new orders or stock moves.')) return;
   await busy(null, async () => {
     await api('/api/warehouses/' + id, {method: 'PUT', json: {name: w.name, address: w.address, manager: w.manager, active: !w.active}});
-    toast(w.active ? 'Warehouse deactivated.' : 'Warehouse activated.'); closePanel(); await loadWarehouses(); renderWarehousesAdmin();
+    toast(w.active ? 'Warehouse deactivated.' : 'Warehouse activated.'); closePanel(); await loadWarehousePage();
   });
 }
 
