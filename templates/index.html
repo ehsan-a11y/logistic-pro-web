@@ -835,6 +835,9 @@ th.num{text-align:right}
 .loc-row{margin-bottom:8px}
 .loc-row input{height:40px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%;text-transform:uppercase}
 .loc-row input::placeholder{text-transform:none}
+.loc-row .lr-name{grid-column:1 / -1;text-transform:none}
+#oli-body td:nth-child(-n+2),#oli-body td:nth-child(5),#ord-body td:first-child{white-space:nowrap}
+.loc-row.lr{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fcfdff}
 .loc-row input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
 .bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
 tr.row-inactive td{opacity:.55}
@@ -1255,12 +1258,12 @@ tr.row-inactive td{opacity:.55}
         <div class="table-hdr-right"><span class="rec-count" id="loc-count"></span></div>
       </div>
       <div class="mod-tools">
-        <input type="search" id="loc-search" placeholder="Search code, zone, rack…" aria-label="Search locations" oninput="renderLocTable()">
+        <input type="search" id="loc-search" placeholder="Search code, name, zone…" aria-label="Search locations" oninput="renderLocTable()">
         <select id="loc-wh" aria-label="Warehouse" onchange="renderLocTable()"><option value="">All warehouses</option></select>
       </div>
       <div class="tbl-wrap">
         <table class="clickable">
-          <thead><tr><th>Code</th><th>Warehouse</th><th>Zone</th><th>Rack</th><th>Shelf</th><th>Bin</th><th>Description</th><th class="num">Units</th><th>Status</th></tr></thead>
+          <thead><tr><th>Code</th><th>Location name</th><th>Warehouse</th><th>Zone</th><th>Rack</th><th>Shelf</th><th>Bin</th><th class="num">Units</th><th>Status</th></tr></thead>
           <tbody id="loc-body"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
         </table>
       </div>
@@ -1284,19 +1287,31 @@ tr.row-inactive td{opacity:.55}
       <div class="mod-tools">
         <input type="search" id="ord-search" placeholder="Search order, destination" aria-label="Search orders" oninput="renderOrders()">
         <select id="ord-filter" aria-label="Filter orders by status" onchange="renderOrders()">
+          <option value="" selected>All orders</option>
           <option value="open">Open orders</option>
           <option value="pick_list">To pick</option>
           <option value="picked">To pack</option>
           <option value="packed">Ready to ship</option>
           <option value="shipped">Shipped</option>
           <option value="cancelled">Cancelled</option>
-          <option value="">All orders</option>
         </select>
       </div>
       <div class="tbl-wrap">
         <table class="clickable">
           <thead><tr><th>Order</th><th>Date</th><th>Warehouse</th><th>Destination</th><th class="num">Items</th><th>Requested by</th><th>Status</th></tr></thead>
           <tbody id="ord-body"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="table-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-cubes"></i></div><h3>Order Items</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="oli-count">0 lines</span></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Order</th><th>Status</th><th>Warehouse</th><th>Destination</th><th>SKU</th><th>Product</th><th class="num">Requested</th><th class="num">Picked</th><th>Pick from / picked from</th><th>Requested by</th></tr></thead>
+          <tbody id="oli-body"><tr class="empty-row"><td colspan="10">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2263,8 +2278,8 @@ function renderLocTable() {
     .filter(l => !q || [l.code, l.zone, l.rack, l.shelf, l.bin, l.description, l.warehouse].join(' ').toLowerCase().includes(q));
   document.getElementById('loc-count').textContent = rows.length + ' location' + (rows.length !== 1 ? 's' : '');
   document.getElementById('loc-body').innerHTML = rows.length ? rows.map(l => `
-    <tr onclick="openWarehouse(${l.warehouse_id})" class="${l.active ? '' : 'row-inactive'}"><td><span class="bin-chip">${H(l.code)}</span></td><td>${H(l.warehouse)}</td>
-      <td>${H(l.zone || '—')}</td><td>${H(l.rack || '—')}</td><td>${H(l.shelf || '—')}</td><td>${H(l.bin || '—')}</td><td>${H(l.description || '')}</td>
+    <tr onclick="openWarehouse(${l.warehouse_id})" class="${l.active ? '' : 'row-inactive'}"><td><span class="bin-chip">${H(l.code)}</span></td><td>${H(l.description || '—')}</td><td>${H(l.warehouse)}</td>
+      <td>${H(l.zone || '—')}</td><td>${H(l.rack || '—')}</td><td>${H(l.shelf || '—')}</td><td>${H(l.bin || '—')}</td>
       <td class="num">${fmtN(l.units)}</td><td><span class="badge ${l.active ? 'badge-ok' : 'badge-muted'}">${l.active ? 'Active' : 'Inactive'}</span></td></tr>`).join('')
     : `<tr class="empty-row"><td colspan="9">${ALLLOCS.length ? 'No locations match.' : (can('stock.adjust') ? 'No storage locations yet. Click “Add Location” or add them when creating a warehouse.' : 'No storage locations yet.')}</td></tr>`;
 }
@@ -2275,10 +2290,11 @@ function locRowsBlock() {
     <div class="loc-head" aria-hidden="true"><span>Zone</span><span>Rack</span><span>Shelf</span><span>Bin</span><span></span></div>
     <div id="lr-list"></div>
     <button type="button" class="pbtn" style="width:100%" onclick="addLocRow()"><i class="fa fa-plus"></i> Add location</button>
-    <p class="pf-hint" style="margin-top:8px">Fill in only the levels you use, e.g. Zone A · Rack 01 · Shelf 3 · Bin B → <b>A-01-3-B</b>.</p>
+    <p class="pf-hint" style="margin-top:8px">Fill in only the levels you use, e.g. Zone A · Rack 01 · Shelf 3 · Bin B → code <b>A-01-3-B</b>, plus a name such as “Devices shelf”.</p>
     <div class="p-sec"><i class="fa fa-layer-group"></i> Or create a range</div>
     <div class="loc-row"><input id="rg-z" placeholder="Zone" aria-label="Range zone"><input id="rg-r" placeholder="Rack" aria-label="Range rack">
-      <input id="rg-s" placeholder="1-5" aria-label="Range shelves"><input id="rg-b" placeholder="A-D" aria-label="Range bins"><span></span></div>
+      <input id="rg-s" placeholder="1-5" aria-label="Range shelves"><input id="rg-b" placeholder="A-D" aria-label="Range bins"><span></span>
+      <input id="rg-n" class="lr-name" placeholder="Name for all (optional), e.g. Accessories" aria-label="Range location name"></div>
     <p class="pf-hint">Shelves and bins accept ranges (1-5, A-D) or lists (A,B,C). Zone A, Rack 02, Shelves 1-5, Bins A-D creates 20 locations.</p>`;
 }
 function addLocRow(z = '', r = '', s = '', b = '') {
@@ -2286,17 +2302,19 @@ function addLocRow(z = '', r = '', s = '', b = '') {
   div.className = 'loc-row lr';
   div.innerHTML = `<input class="lr-z" placeholder="A" aria-label="Zone" value="${H(z)}"><input class="lr-r" placeholder="01" aria-label="Rack" value="${H(r)}">
     <input class="lr-s" placeholder="3" aria-label="Shelf" value="${H(s)}"><input class="lr-b" placeholder="B" aria-label="Bin" value="${H(b)}">
-    <button type="button" class="icon-btn" aria-label="Remove location row" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>`;
+    <button type="button" class="icon-btn" aria-label="Remove location row" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>
+    <input class="lr-n lr-name" placeholder="Location name, e.g. Devices shelf" aria-label="Location name">`;
   document.getElementById('lr-list').appendChild(div);
 }
 async function saveLocationsFor(wid) {
   let made = 0; const errs = [];
   for (const row of document.querySelectorAll('#lr-list .lr')) {
-    const body = {zone: row.querySelector('.lr-z').value, rack: row.querySelector('.lr-r').value, shelf: row.querySelector('.lr-s').value, bin: row.querySelector('.lr-b').value};
+    const body = {zone: row.querySelector('.lr-z').value, rack: row.querySelector('.lr-r').value, shelf: row.querySelector('.lr-s').value, bin: row.querySelector('.lr-b').value,
+      description: row.querySelector('.lr-n').value};
     if (![body.zone, body.rack, body.shelf, body.bin].some(v => v.trim())) continue;
     try { await api('/api/warehouses/' + wid + '/locations', {json: body}); made++; } catch (e) { errs.push(e.message); }
   }
-  const rg = {zone: val('rg-z'), rack: val('rg-r'), shelves: val('rg-s'), bins: val('rg-b')};
+  const rg = {zone: val('rg-z'), rack: val('rg-r'), shelves: val('rg-s'), bins: val('rg-b'), description: val('rg-n')};
   if ((rg.shelves || '').trim() || (rg.bins || '').trim()) {
     try { const d = await api('/api/warehouses/' + wid + '/locations/generate', {json: rg}); made += d.created; if (d.skipped) errs.push(d.skipped + ' already existed'); }
     catch (e) { errs.push(e.message); }
@@ -2612,13 +2630,25 @@ async function saveTransfer(btn) {
 }
 
 // ── orders ───────────────────────────────────────────────────────
+let ORDER_LINES = [];
 async function loadOrders() {
-  try { ORDERS = await api('/api/orders'); } catch (e) { ORDERS = []; toast(e.message, 'error'); }
+  try { [ORDERS, ORDER_LINES] = await Promise.all([api('/api/orders'), api('/api/order-lines')]); }
+  catch (e) { ORDERS = ORDERS || []; ORDER_LINES = ORDER_LINES || []; toast(e.message, 'error'); }
   renderOrders();
 }
-function goOrders(status) { navigate('orders'); document.getElementById('ord-filter').value = status; renderOrders(); }
+const binChips = bins => (bins || []).map(b => `<span class="bin-chip" title="${H(b.name || '')}">${H(b.code)}${b.name ? ' – ' + H(b.name) : ''} ×${fmtN(b.qty)}</span>`).join(' ');
+function goOrders(status) { document.getElementById('ord-filter').value = status; navigate('orders'); renderOrders(); }
 function renderOrders() {
   const f = val('ord-filter'), q = (val('ord-search') || '').toLowerCase();
+  const lines = ORDER_LINES.filter(l => f === 'open' ? ['pick_list', 'picked', 'packed'].includes(l.status) : (!f || l.status === f))
+    .filter(l => !q || [l.number, l.destination, l.sku, l.name, l.requester, l.awb_no].join(' ').toLowerCase().includes(q));
+  document.getElementById('oli-count').textContent = lines.length + ' line' + (lines.length !== 1 ? 's' : '');
+  document.getElementById('oli-body').innerHTML = lines.length ? lines.map(l => `
+    <tr onclick="openOrder(${l.order_id})"><td><b>${l.number}</b></td><td><span class="badge badge-${l.status}">${l.status_label}</span></td>
+      <td>${H(l.warehouse || '')}</td><td>${H(l.destination || '')}</td><td>${H(l.sku)}</td><td>${H(l.name)}</td>
+      <td class="num">${fmtN(l.qty_requested)}</td><td class="num">${l.qty_picked != null ? fmtN(l.qty_picked) : '—'}</td>
+      <td>${l.status === 'cancelled' ? '—' : binChips(l.bins)}</td><td>${H(l.requester || '')}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="10">No order items in this view.</td></tr>`;
   const rows = ORDERS.filter(o => f === 'open' ? ['pick_list', 'picked', 'packed'].includes(o.status) : (!f || o.status === f))
     .filter(o => !q || (o.number + ' ' + (o.destination || '') + ' ' + (o.awb_no || '') + ' ' + (o.requester || '')).toLowerCase().includes(q));
   document.getElementById('ord-count').textContent = rows.length + ' order' + (rows.length !== 1 ? 's' : '');
@@ -2668,7 +2698,7 @@ async function submitOrder(btn) {
   if (!items.length) { toast('Add at least one product with a quantity.', 'error'); return; }
   await busy(btn, async () => {
     const d = await api('/api/orders', {json: {warehouse_id: val('no-w'), destination: val('no-d'), contact: val('no-c'), urgency: val('no-u'), notes: val('no-n'), items}});
-    closePanel(); toast('Pick list ' + d.order.number + ' created. Stock reserved.'); goOrders('open'); loadOrders(); updateDashboard();
+    closePanel(); toast('Pick list ' + d.order.number + ' created. Stock reserved.'); goOrders(''); loadOrders(); updateDashboard();
   });
 }
 function stepsBar(status) {
