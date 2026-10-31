@@ -259,16 +259,24 @@ def ensure_modules_db():
             return_action TEXT, created_at TEXT, updated_at TEXT)''',
         f'''CREATE TABLE IF NOT EXISTS order_items (id {pk}, order_id INTEGER NOT NULL,
             product_id INTEGER NOT NULL, qty_requested INTEGER NOT NULL, qty_picked INTEGER)''',
+        f'''CREATE TABLE IF NOT EXISTS locations (id {pk}, warehouse_id INTEGER NOT NULL, code TEXT NOT NULL,
+            zone TEXT, rack TEXT, shelf TEXT, bin TEXT, description TEXT, active INTEGER DEFAULT 1, created_at TEXT)''',
+        f'''CREATE TABLE IF NOT EXISTS order_picks (id {pk}, order_id INTEGER NOT NULL, order_item_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL, location_id INTEGER, qty INTEGER NOT NULL)''',
     ]
     with DB() as db:
         for t in tables:
             db.run(t)
         if USE_PG:
             db.run('ALTER TABLE shipments ADD COLUMN IF NOT EXISTS order_id INTEGER')
+            db.run('ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS location_id INTEGER')
         else:
             cols = [r['name'] for r in db.rows('PRAGMA table_info(shipments)')]
             if 'order_id' not in cols:
                 db.run('ALTER TABLE shipments ADD COLUMN order_id INTEGER')
+            cols = [r['name'] for r in db.rows('PRAGMA table_info(stock_movements)')]
+            if 'location_id' not in cols:
+                db.run('ALTER TABLE stock_movements ADD COLUMN location_id INTEGER')
     _modules_ready = True
 
 
@@ -593,6 +601,174 @@ def wh_update(wid):
 
 
 # ── inventory ─────────────────────────────────────────────────────────────────
+# ── storage locations (zone / rack / shelf / bin) ─────────────────────────────
+def _loc_code(zone, rack, shelf, bin_):
+    return '-'.join(p for p in (zone, rack, shelf, bin_) if p)
+
+
+def _clean(v):
+    return (str(v).strip().upper() if v not in (None, '') else '')
+
+
+def _loc_ok(db, wid, lid):
+    """None/0 means Unassigned. Otherwise the location must belong to the warehouse."""
+    if not lid:
+        return True
+    return bool(db.one('SELECT id FROM locations WHERE id = $1 AND warehouse_id = $2', (lid, wid)))
+
+
+def _loc_onhand(db):
+    """{(product_id, warehouse_id, location_id or 0): on_hand}"""
+    out = {}
+    for r in db.rows('SELECT product_id, warehouse_id, location_id, SUM(qty) AS q FROM stock_movements '
+                     'GROUP BY product_id, warehouse_id, location_id'):
+        k = (r['product_id'], r['warehouse_id'], r['location_id'] or 0)
+        out[k] = out.get(k, 0) + int(r['q'] or 0)
+    return out
+
+
+def _loc_alloc(db):
+    """Quantities already picked from a bin but not yet shipped: {(product_id, warehouse_id, location_id or 0): qty}"""
+    out = {}
+    for r in db.rows("SELECT p.product_id, o.warehouse_id, p.location_id, p.qty FROM order_picks p "
+                     "JOIN orders o ON o.id = p.order_id WHERE o.status IN ('picked','packed')"):
+        k = (r['product_id'], r['warehouse_id'], r['location_id'] or 0)
+        out[k] = out.get(k, 0) + int(r['qty'] or 0)
+    return out
+
+
+def _loc_free(db, pid, wid, lid, onhand=None, alloc=None):
+    onhand = onhand if onhand is not None else _loc_onhand(db)
+    alloc = alloc if alloc is not None else _loc_alloc(db)
+    k = (pid, wid, lid or 0)
+    return onhand.get(k, 0) - alloc.get(k, 0)
+
+
+def _suggest_bins(db, pid, wid, qty, onhand=None, alloc=None, codes=None):
+    """Pick from real bins in code order first, Unassigned last. Returns [(location_id or None, code, qty)]."""
+    onhand = onhand if onhand is not None else _loc_onhand(db)
+    alloc = alloc if alloc is not None else _loc_alloc(db)
+    if codes is None:
+        codes = {r['id']: r['code'] for r in db.rows('SELECT id, code FROM locations WHERE warehouse_id = $1', (wid,))}
+    cands = []
+    for (p, w, l), q in onhand.items():
+        if p == pid and w == wid:
+            free = q - alloc.get((p, w, l), 0)
+            if free > 0:
+                cands.append((l, free))
+    cands.sort(key=lambda c: (c[0] == 0, codes.get(c[0], '')))
+    out, left = [], qty
+    for l, free in cands:
+        if left <= 0:
+            break
+        take = min(free, left)
+        out.append((l or None, codes.get(l, 'Unassigned') if l else 'Unassigned', take))
+        left -= take
+    if left > 0:
+        out.append((None, 'Unassigned', left))
+    return out
+
+
+@app.route('/api/warehouses/<int:wid>/locations')
+def loc_list(wid):
+    with DB() as db:
+        locs = db.rows('SELECT * FROM locations WHERE warehouse_id = $1 ORDER BY active DESC, code', (wid,))
+        onhand = _loc_onhand(db)
+    units, prods = {}, {}
+    for (p, w, l), q in onhand.items():
+        if w == wid and q:
+            units[l] = units.get(l, 0) + q
+            prods.setdefault(l, set()).add(p)
+    for r in locs:
+        r['units'] = units.get(r['id'], 0)
+        r['products'] = len(prods.get(r['id'], ()))
+    return jsonify({'locations': locs, 'unassigned_units': units.get(0, 0),
+                    'unassigned_products': len(prods.get(0, ()))})
+
+
+@app.route('/api/warehouses/<int:wid>/locations', methods=['POST'])
+@requires('stock.adjust')
+def loc_create(wid):
+    d = request.get_json(silent=True) or {}
+    zone, rack, shelf, bin_ = (_clean(d.get(k)) for k in ('zone', 'rack', 'shelf', 'bin'))
+    code = _clean(d.get('code')) or _loc_code(zone, rack, shelf, bin_)
+    if not code:
+        return jsonify({'success': False, 'error': 'Enter at least a zone, rack, shelf or bin.'}), 400
+    with DB() as db:
+        if not db.one('SELECT id FROM warehouses WHERE id = $1', (wid,)):
+            return jsonify({'success': False, 'error': 'Warehouse not found.'}), 404
+        if db.one('SELECT id FROM locations WHERE warehouse_id = $1 AND code = $2', (wid, code)):
+            return jsonify({'success': False, 'error': 'Location ' + code + ' already exists in this warehouse.'}), 409
+        lid = db.insert('INSERT INTO locations (warehouse_id, code, zone, rack, shelf, bin, description, active, created_at) '
+                        'VALUES ($1,$2,$3,$4,$5,$6,$7,1,$8)',
+                        (wid, code, zone, rack, shelf, bin_, (d.get('description') or '').strip(), _now()))
+    return jsonify({'success': True, 'id': lid, 'code': code})
+
+
+def _expand(spec):
+    """'1-5' -> 1..5 ; 'A-D' -> A..D ; 'A,B,C' -> list ; '' -> ['']"""
+    spec = (spec or '').strip().upper()
+    if not spec:
+        return ['']
+    if ',' in spec:
+        return [x.strip() for x in spec.split(',') if x.strip()]
+    m = _re.fullmatch(r'(\d+)\s*-\s*(\d+)', spec)
+    if m:
+        a, b = int(m.group(1)), int(m.group(2))
+        width = len(m.group(1))
+        return [str(i).zfill(width) for i in range(a, b + 1)] if 0 <= b - a < 200 else []
+    m = _re.fullmatch(r'([A-Z])\s*-\s*([A-Z])', spec)
+    if m:
+        return [chr(c) for c in range(ord(m.group(1)), ord(m.group(2)) + 1)]
+    return [spec]
+
+
+@app.route('/api/warehouses/<int:wid>/locations/generate', methods=['POST'])
+@requires('stock.adjust')
+def loc_generate(wid):
+    d = request.get_json(silent=True) or {}
+    zone, rack = _clean(d.get('zone')), _clean(d.get('rack'))
+    shelves, bins = _expand(d.get('shelves')), _expand(d.get('bins'))
+    if not shelves or not bins:
+        return jsonify({'success': False, 'error': 'Use ranges like 1-5 or A-D, or a list like A,B,C.'}), 400
+    combos = [(sh, b) for sh in shelves for b in bins]
+    if len(combos) > 300:
+        return jsonify({'success': False, 'error': 'That would create more than 300 locations. Use a smaller range.'}), 400
+    made, skipped = 0, 0
+    with DB() as db:
+        if not db.one('SELECT id FROM warehouses WHERE id = $1', (wid,)):
+            return jsonify({'success': False, 'error': 'Warehouse not found.'}), 404
+        existing = {r['code'] for r in db.rows('SELECT code FROM locations WHERE warehouse_id = $1', (wid,))}
+        for sh, b in combos:
+            code = _loc_code(zone, rack, sh, b)
+            if not code or code in existing:
+                skipped += 1
+                continue
+            db.run('INSERT INTO locations (warehouse_id, code, zone, rack, shelf, bin, description, active, created_at) '
+                   'VALUES ($1,$2,$3,$4,$5,$6,$7,1,$8)', (wid, code, zone, rack, sh, b, '', _now()))
+            existing.add(code)
+            made += 1
+    return jsonify({'success': True, 'created': made, 'skipped': skipped})
+
+
+@app.route('/api/locations/<int:lid>', methods=['PUT'])
+@requires('stock.adjust')
+def loc_update(lid):
+    d = request.get_json(silent=True) or {}
+    with DB() as db:
+        loc = db.one('SELECT * FROM locations WHERE id = $1', (lid,))
+        if not loc:
+            return jsonify({'success': False, 'error': 'Location not found.'}), 404
+        active = 1 if d.get('active', bool(loc['active'])) else 0
+        if not active and loc['active']:
+            r = db.one('SELECT COALESCE(SUM(qty),0) AS q FROM stock_movements WHERE location_id = $1', (lid,))
+            if int(r['q'] or 0) != 0:
+                return jsonify({'success': False, 'error': 'Move the stock out of ' + loc['code'] + ' before deactivating it.'}), 400
+        db.run('UPDATE locations SET description = $1, active = $2 WHERE id = $3',
+               ((d.get('description') if 'description' in d else loc.get('description')) or '', active, lid))
+    return jsonify({'success': True})
+
+
 def _stock_map(db):
     """{(product_id, warehouse_id): {'on_hand': n, 'reserved': n}}"""
     out = {}
@@ -640,6 +816,9 @@ def products_list():
         prods = db.rows('SELECT * FROM products ORDER BY active DESC, name')
         smap = _stock_map(db)
         whs = db.rows('SELECT id, name FROM warehouses')
+        lonhand = _loc_onhand(db)
+        lalloc = _loc_alloc(db)
+        codes = {r['id']: r['code'] for r in db.rows('SELECT id, code FROM locations')}
     out = []
     for p in prods:
         per = []
@@ -648,8 +827,12 @@ def products_list():
             s = smap.get((p['id'], w['id']))
             if not s:
                 continue
+            locs = sorted(({'location_id': l or None, 'code': codes.get(l, 'Unassigned') if l else 'Unassigned',
+                            'on_hand': q, 'free': q - lalloc.get((pp, ww, l), 0)}
+                           for (pp, ww, l), q in lonhand.items() if pp == p['id'] and ww == w['id'] and q),
+                          key=lambda x: (x['location_id'] is None, x['code']))
             per.append({'warehouse_id': w['id'], 'warehouse': w['name'], 'on_hand': s['on_hand'],
-                        'reserved': s['reserved'], 'available': s['on_hand'] - s['reserved']})
+                        'reserved': s['reserved'], 'available': s['on_hand'] - s['reserved'], 'locations': locs})
             if wid in (None, w['id']):
                 tot['on_hand'] += s['on_hand']
                 tot['reserved'] += s['reserved']
@@ -689,11 +872,12 @@ def products_create():
         for o in d.get('opening') or []:
             try:
                 q, w = int(o.get('qty') or 0), int(o.get('warehouse_id'))
+                lid = int(o.get('location_id') or 0) or None
             except (TypeError, ValueError):
                 continue
-            if q > 0 and db.one('SELECT id FROM warehouses WHERE id = $1', (w,)):
-                db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, user_id, created_at) "
-                       "VALUES ($1,$2,$3,'opening','Opening stock',$4,$5)", (pid, w, q, g.user['id'], _now()))
+            if q > 0 and db.one('SELECT id FROM warehouses WHERE id = $1', (w,)) and _loc_ok(db, w, lid):
+                db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, user_id, created_at) "
+                       "VALUES ($1,$2,$3,$4,'opening','Opening stock',$5,$6)", (pid, w, lid, q, g.user['id'], _now()))
         return jsonify({'success': True, 'id': pid})
 
 
@@ -715,8 +899,9 @@ def products_update(pid):
 @app.route('/api/products/<int:pid>/movements')
 def products_movements(pid):
     with DB() as db:
-        rows = db.rows('SELECT m.*, w.name AS warehouse, u.name AS user_name FROM stock_movements m '
+        rows = db.rows('SELECT m.*, w.name AS warehouse, u.name AS user_name, l.code AS location FROM stock_movements m '
                        'LEFT JOIN warehouses w ON w.id = m.warehouse_id LEFT JOIN users u ON u.id = m.user_id '
+                       'LEFT JOIN locations l ON l.id = m.location_id '
                        'WHERE m.product_id = $1 ORDER BY m.id DESC', (pid,))
     return jsonify(rows[:300])
 
@@ -727,6 +912,7 @@ def stock_adjust():
     d = request.get_json(silent=True) or {}
     try:
         pid, wid, qty = int(d.get('product_id')), int(d.get('warehouse_id')), int(d.get('qty'))
+        lid = int(d.get('location_id') or 0) or None
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': 'Choose a product, warehouse and quantity.'}), 400
     reason = (d.get('reason') or '').strip()
@@ -735,11 +921,16 @@ def stock_adjust():
     with DB() as db:
         if not db.one('SELECT id FROM products WHERE id = $1', (pid,)) or not db.one('SELECT id FROM warehouses WHERE id = $1 AND active = 1', (wid,)):
             return jsonify({'success': False, 'error': 'Product or warehouse not found.'}), 404
+        if not _loc_ok(db, wid, lid):
+            return jsonify({'success': False, 'error': 'That location isn’t in this warehouse.'}), 400
         before = _total_on_hand(db, pid)
-        if qty < 0 and _available(db, pid, wid) + qty < 0:
-            return jsonify({'success': False, 'error': 'Not enough available stock to remove that many (some may be reserved for orders).'}), 400
-        db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, note, user_id, created_at) "
-               "VALUES ($1,$2,$3,'adjust',$4,$5,$6,$7)", (pid, wid, qty, reason, (d.get('note') or '').strip(), g.user['id'], _now()))
+        if qty < 0:
+            if _available(db, pid, wid) + qty < 0:
+                return jsonify({'success': False, 'error': 'Not enough available stock to remove that many (some may be reserved for orders).'}), 400
+            if _loc_free(db, pid, wid, lid) + qty < 0:
+                return jsonify({'success': False, 'error': 'Not enough stock in that location.'}), 400
+        db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, note, user_id, created_at) "
+               "VALUES ($1,$2,$3,$4,'adjust',$5,$6,$7,$8)", (pid, wid, lid, qty, reason, (d.get('note') or '').strip(), g.user['id'], _now()))
     _low_stock_check(pid, before)
     return jsonify({'success': True})
 
@@ -750,20 +941,27 @@ def stock_transfer():
     d = request.get_json(silent=True) or {}
     try:
         pid, src, dst, qty = int(d.get('product_id')), int(d.get('from_id')), int(d.get('to_id')), int(d.get('qty'))
+        sl = int(d.get('from_location_id') or 0) or None
+        dl = int(d.get('to_location_id') or 0) or None
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': 'Choose a product, both warehouses and a quantity.'}), 400
-    if qty <= 0 or src == dst:
-        return jsonify({'success': False, 'error': 'Choose two different warehouses and a quantity above zero.'}), 400
+    if qty <= 0 or (src == dst and sl == dl):
+        return jsonify({'success': False, 'error': 'Choose a different destination and a quantity above zero.'}), 400
     with DB() as db:
         if not db.one('SELECT id FROM warehouses WHERE id = $1 AND active = 1', (dst,)):
             return jsonify({'success': False, 'error': 'Destination warehouse not found.'}), 404
-        if _available(db, pid, src) < qty:
+        if not _loc_ok(db, src, sl) or not _loc_ok(db, dst, dl):
+            return jsonify({'success': False, 'error': 'A selected location isn’t in that warehouse.'}), 400
+        if src != dst and _available(db, pid, src) < qty:
             return jsonify({'success': False, 'error': 'Not enough available stock in the source warehouse.'}), 400
+        if _loc_free(db, pid, src, sl) < qty:
+            return jsonify({'success': False, 'error': 'Not enough stock in the source location.'}), 400
         note = (d.get('note') or '').strip()
-        db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, note, user_id, created_at) "
-               "VALUES ($1,$2,$3,'transfer','Transfer out',$4,$5,$6)", (pid, src, -qty, note, g.user['id'], _now()))
-        db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, note, user_id, created_at) "
-               "VALUES ($1,$2,$3,'transfer','Transfer in',$4,$5,$6)", (pid, dst, qty, note, g.user['id'], _now()))
+        label = 'Moved between locations' if src == dst else None
+        db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, note, user_id, created_at) "
+               "VALUES ($1,$2,$3,$4,'transfer',$5,$6,$7,$8)", (pid, src, sl, -qty, label or 'Transfer out', note, g.user['id'], _now()))
+        db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, note, user_id, created_at) "
+               "VALUES ($1,$2,$3,$4,'transfer',$5,$6,$7,$8)", (pid, dst, dl, qty, label or 'Transfer in', note, g.user['id'], _now()))
     return jsonify({'success': True})
 
 
@@ -777,6 +975,16 @@ def _order_full(db, oid):
         return None
     o['items'] = db.rows('SELECT i.*, p.sku, p.name, p.unit FROM order_items i JOIN products p ON p.id = i.product_id '
                          'WHERE i.order_id = $1 ORDER BY i.id', (oid,))
+    codes = {r['id']: r['code'] for r in db.rows('SELECT id, code FROM locations WHERE warehouse_id = $1', (o['warehouse_id'],))}
+    picks = db.rows('SELECT * FROM order_picks WHERE order_id = $1 ORDER BY id', (oid,))
+    if o['status'] == 'pick_list':
+        onhand, alloc = _loc_onhand(db), _loc_alloc(db)
+    for i in o['items']:
+        if o['status'] == 'pick_list':
+            i['bins'] = [{'code': c, 'qty': q} for _l, c, q in _suggest_bins(db, i['product_id'], o['warehouse_id'], i['qty_requested'], onhand, alloc, codes)]
+        else:
+            i['bins'] = [{'code': codes.get(p['location_id'], 'Unassigned') if p['location_id'] else 'Unassigned', 'qty': p['qty']}
+                         for p in picks if p['order_item_id'] == i['id']]
     names = {r['id']: r['name'] for r in db.rows('SELECT id, name FROM users')}
     for k in ('picked_by', 'packed_by', 'shipped_by'):
         o[k + '_name'] = names.get(o.get(k))
@@ -898,8 +1106,17 @@ def orders_pick(oid):
             total += q
         if total == 0:
             return jsonify({'success': False, 'error': 'Nothing was picked. Cancel the order instead.'}), 400
+        onhand, alloc = _loc_onhand(db), _loc_alloc(db)
+        db.run('DELETE FROM order_picks WHERE order_id = $1', (oid,))
         for i in items:
-            db.run('UPDATE order_items SET qty_picked = $1 WHERE id = $2', (picked.get(i['id'], i['qty_requested']), i['id']))
+            q = picked.get(i['id'], i['qty_requested'])
+            db.run('UPDATE order_items SET qty_picked = $1 WHERE id = $2', (q, i['id']))
+            if q:
+                for lid, _code, take in _suggest_bins(db, i['product_id'], o['warehouse_id'], q, onhand, alloc):
+                    db.run('INSERT INTO order_picks (order_id, order_item_id, product_id, location_id, qty) VALUES ($1,$2,$3,$4,$5)',
+                           (oid, i['id'], i['product_id'], lid, take))
+                    k = (i['product_id'], o['warehouse_id'], lid or 0)
+                    alloc[k] = alloc.get(k, 0) + take
         db.run("UPDATE orders SET status = 'picked', picked_by = $1, picked_at = $2, updated_at = $3 WHERE id = $4",
                (g.user['id'], _now(), _now(), oid))
         o = _order_full(db, oid)
@@ -947,13 +1164,11 @@ def orders_ship(oid):
             return jsonify({'success': False, 'error': 'AWB No. already exists'}), 409
         sid = db.insert('INSERT INTO shipments (date, awb_no, cost, status, order_id) VALUES ($1,$2,$3,$4,$5)',
                         ((d.get('date') or _now()[:10]), awb, d.get('cost') or None, 'Transit', oid))
-        for i in db.rows('SELECT * FROM order_items WHERE order_id = $1', (oid,)):
-            q = int(i['qty_picked'] or 0)
-            if q:
-                befores.setdefault(i['product_id'], _total_on_hand(db, i['product_id']))
-                db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, order_id, shipment_id, user_id, created_at) "
-                       "VALUES ($1,$2,$3,'ship','Shipped',$4,$5,$6,$7)",
-                       (i['product_id'], o['warehouse_id'], -q, oid, sid, g.user['id'], _now()))
+        for pk in db.rows('SELECT * FROM order_picks WHERE order_id = $1', (oid,)):
+            befores.setdefault(pk['product_id'], _total_on_hand(db, pk['product_id']))
+            db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, order_id, shipment_id, user_id, created_at) "
+                   "VALUES ($1,$2,$3,$4,'ship','Shipped',$5,$6,$7,$8)",
+                   (pk['product_id'], o['warehouse_id'], pk['location_id'], -int(pk['qty']), oid, sid, g.user['id'], _now()))
         db.run("UPDATE orders SET status = 'shipped', shipment_id = $1, shipped_by = $2, shipped_at = $3, updated_at = $4 WHERE id = $5",
                (sid, g.user['id'], _now(), _now(), oid))
         o = _order_full(db, oid)
@@ -979,6 +1194,7 @@ def orders_cancel(oid):
             return jsonify({'success': False, 'error': 'You can only cancel your own pick lists.'}), 403
         if g.user['role'] == 'requester' and o['status'] != 'pick_list':
             return jsonify({'success': False, 'error': 'Picking has started. Ask the warehouse to cancel it.'}), 403
+        db.run('DELETE FROM order_picks WHERE order_id = $1', (oid,))
         db.run("UPDATE orders SET status = 'cancelled', cancel_reason = $1, updated_at = $2 WHERE id = $3", (reason, _now(), oid))
         o = _order_full(db, oid)
     return jsonify({'success': True, 'order': o})
@@ -987,7 +1203,12 @@ def orders_cancel(oid):
 @app.route('/api/orders/<int:oid>/return', methods=['POST'])
 @requires('returns.receive')
 def orders_return(oid):
-    action = (request.get_json(silent=True) or {}).get('action')
+    body = request.get_json(silent=True) or {}
+    action = body.get('action')
+    try:
+        ret_loc = int(body.get('location_id') or 0) or None
+    except (TypeError, ValueError):
+        ret_loc = None
     if action not in ('restock', 'scrap'):
         return jsonify({'success': False, 'error': 'Choose restock or scrap.'}), 400
     with DB() as db:
@@ -1000,11 +1221,13 @@ def orders_return(oid):
         if o.get('return_action'):
             return jsonify({'success': False, 'error': 'This return was already recorded.'}), 409
         if action == 'restock':
+            if not _loc_ok(db, o['warehouse_id'], ret_loc):
+                return jsonify({'success': False, 'error': 'That location isn’t in this warehouse.'}), 400
             for i in db.rows('SELECT * FROM order_items WHERE order_id = $1', (oid,)):
                 if i['qty_picked']:
-                    db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, order_id, shipment_id, user_id, created_at) "
-                           "VALUES ($1,$2,$3,'return','Returned to stock',$4,$5,$6,$7)",
-                           (i['product_id'], o['warehouse_id'], int(i['qty_picked']), oid, o['shipment_id'], g.user['id'], _now()))
+                    db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, order_id, shipment_id, user_id, created_at) "
+                           "VALUES ($1,$2,$3,$4,'return','Returned to stock',$5,$6,$7,$8)",
+                           (i['product_id'], o['warehouse_id'], ret_loc, int(i['qty_picked']), oid, o['shipment_id'], g.user['id'], _now()))
         db.run('UPDATE orders SET return_action = $1, updated_at = $2 WHERE id = $3', (action, _now(), oid))
         o = _order_full(db, oid)
     return jsonify({'success': True, 'order': o})
@@ -1016,11 +1239,10 @@ def unlink_order_shipment(db, sid):
     if not o:
         return
     if o.get('return_action') != 'restock':
-        for i in db.rows('SELECT * FROM order_items WHERE order_id = $1', (o['id'],)):
-            if i['qty_picked']:
-                db.run("INSERT INTO stock_movements (product_id, warehouse_id, qty, type, reason, order_id, user_id, created_at) "
-                       "VALUES ($1,$2,$3,'adjust','Shipment deleted',$4,$5,$6)",
-                       (i['product_id'], o['warehouse_id'], int(i['qty_picked']), o['id'], g.user['id'], _now()))
+        for pk in db.rows('SELECT * FROM order_picks WHERE order_id = $1', (o['id'],)):
+            db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, order_id, user_id, created_at) "
+                   "VALUES ($1,$2,$3,$4,'adjust','Shipment deleted',$5,$6,$7)",
+                   (pk['product_id'], o['warehouse_id'], pk['location_id'], int(pk['qty']), o['id'], g.user['id'], _now()))
     db.run("UPDATE orders SET status = 'packed', shipment_id = NULL, shipped_by = NULL, shipped_at = NULL, "
            "return_action = NULL, updated_at = $1 WHERE id = $2", (_now(), o['id']))
 
