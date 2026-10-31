@@ -745,7 +745,7 @@ def loc_generate(wid):
                 skipped += 1
                 continue
             db.run('INSERT INTO locations (warehouse_id, code, zone, rack, shelf, bin, description, active, created_at) '
-                   'VALUES ($1,$2,$3,$4,$5,$6,$7,1,$8)', (wid, code, zone, rack, sh, b, '', _now()))
+                   'VALUES ($1,$2,$3,$4,$5,$6,$7,1,$8)', (wid, code, zone, rack, sh, b, (d.get('description') or '').strip(), _now()))
             existing.add(code)
             made += 1
     return jsonify({'success': True, 'created': made, 'skipped': skipped})
@@ -1020,6 +1020,31 @@ def orders_list():
         r['lines'] = int(c.get('n') or 0)
         r['units'] = int(c.get('q') or 0)
     return jsonify(rows)
+
+
+@app.route('/api/order-lines')
+def order_lines():
+    """Every product line of every order, with pick-from (or picked-from) locations."""
+    with DB() as db:
+        lines = db.rows('SELECT i.*, o.status, o.warehouse_id, o.destination, o.urgency, o.created_at, '
+                        'p.sku, p.name, p.unit, w.name AS warehouse, u.name AS requester, s.awb_no '
+                        'FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id '
+                        'LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
+                        'LEFT JOIN shipments s ON s.id = o.shipment_id ORDER BY o.id DESC, i.id')
+        codes = {r['id']: (r['code'], r.get('description') or '') for r in db.rows('SELECT id, code, description FROM locations')}
+        picks = db.rows('SELECT order_item_id, location_id, qty FROM order_picks ORDER BY id')
+        onhand, alloc = _loc_onhand(db), _loc_alloc(db)
+        for ln in lines:
+            if ln['status'] == 'pick_list':
+                bins = [(l, q) for l, _c, q in _suggest_bins(db, ln['product_id'], ln['warehouse_id'], ln['qty_requested'],
+                                                             onhand, alloc, {k: v[0] for k, v in codes.items()})]
+            else:
+                bins = [(pk['location_id'], pk['qty']) for pk in picks if pk['order_item_id'] == ln['id']]
+            ln['bins'] = [{'code': codes[l][0] if l in codes else 'Unassigned', 'name': codes[l][1] if l in codes else '', 'qty': q}
+                          for l, q in bins]
+            ln['number'] = 'PL-{:04d}'.format(ln['order_id'])
+            ln['status_label'] = ORDER_LABEL.get(ln['status'], ln['status'])
+    return jsonify(lines)
 
 
 @app.route('/api/orders/<int:oid>')
