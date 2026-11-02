@@ -1387,24 +1387,21 @@ tr.row-inactive td{opacity:.55}
       </div>
     </div>
 
-    <div class="table-card set-card" style="margin-top:20px">
+    <div class="table-card" style="margin-top:20px">
       <div class="table-hdr">
         <div class="section-title"><div class="s-icon"><i class="fa fa-users"></i></div><h3>Users and roles</h3></div>
-        <div class="table-hdr-right"><span class="rec-count" id="usr-count"></span></div>
+        <div class="table-hdr-right"><span class="rec-count" id="usr-count"></span>
+          <button class="add-btn" style="height:38px;padding:0 14px;font-size:13px" onclick="openUserForm()"><i class="fa fa-user-plus"></i> Add User</button></div>
       </div>
-      <div class="set-body">
-        <p class="set-help">Invite people by email. They get a link to set their own password. Admin: everything · Requester: creates pick lists · Warehouse: stock, picking, packing, returns · Logistics: shipments.</p>
-        <div class="set-grid-3">
-          <input type="email" id="usr-email" placeholder="name@company.com" aria-label="Email to invite" autocomplete="off">
-          <input type="text" id="usr-name" placeholder="Name (optional)" aria-label="Name">
-          <select id="usr-role" aria-label="Role">
-            <option value="requester">Requester</option><option value="warehouse">Warehouse</option>
-            <option value="logistics">Logistics</option><option value="admin">Admin</option>
-          </select>
-          <button type="button" class="mail-add-btn" id="usr-add-btn" onclick="inviteUser()"><i class="fa fa-user-plus"></i> Invite</button>
-        </div>
+      <div class="set-body" style="padding-bottom:0">
+        <p class="set-help">Admin: everything · Requester: creates pick lists · Warehouse: stock, picking, packing, returns · Logistics: shipments. New users get a link to set their own password.</p>
         <div id="usr-link"></div>
-        <div class="box-list" id="usr-list"><div class="u-row"><span class="set-count">Loading…</span></div></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Name</th><th>Email</th><th>Contact number</th><th>Role</th><th>Warehouse</th><th>Project</th><th>Status</th></tr></thead>
+          <tbody id="usr-body"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -2440,56 +2437,101 @@ async function toggleWarehouse(id) {
 
 // ── users ────────────────────────────────────────────────────────
 let USERS = [];
+let PROJECTS = [];
 async function loadUsers() {
-  try { USERS = await api('/api/users'); } catch (e) { USERS = []; }
+  try { [USERS, PROJECTS] = await Promise.all([api('/api/users'), api('/api/projects')]); } catch (e) { USERS = USERS || []; }
+  if (!WH.length) await loadWarehouses();
   renderUsers();
+}
+function userStatus(u) {
+  if (!u.active) return ['badge-muted', 'Deactivated'];
+  if (!u.has_password) return ['badge-low', 'Invite pending'];
+  return ['badge-ok', 'Active'];
 }
 function renderUsers() {
   document.getElementById('usr-count').textContent = USERS.filter(u => u.active).length + ' active';
-  document.getElementById('usr-list').innerHTML = USERS.map(u => `
-    <div class="u-row ${u.active ? '' : 'inactive'}">
-      <div class="who"><b>${H(u.name)}${u.id === ME.id ? ' (you)' : ''}</b>
-        <small>${H(u.email)} · ${u.active ? (u.has_password ? (u.last_login ? 'Last sign-in ' + fmtDate(u.last_login) : 'Active') : 'Invite pending') : 'Deactivated'}</small></div>
-      <select aria-label="Role for ${H(u.email)}" onchange="setUserRole(${u.id}, this)" ${u.id === ME.id ? 'disabled' : ''}>
-        ${Object.keys(ROLE_LABEL).map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
-      </select>
-      <div class="acts">
-        <button onclick="userLink(${u.id})" title="${u.has_password ? 'Create a password reset link' : 'Create a new invite link'}">${u.has_password ? 'Reset link' : 'Invite link'}</button>
-        ${u.id === ME.id ? '' : `<button onclick="toggleUser(${u.id})">${u.active ? 'Deactivate' : 'Activate'}</button>`}
-      </div>
-    </div>`).join('') || '<div class="u-row"><span class="set-count">No users.</span></div>';
+  document.getElementById('usr-body').innerHTML = USERS.length ? USERS.map(u => {
+    const [cls, label] = userStatus(u);
+    return `<tr onclick="openUserForm(${u.id})" class="${u.active ? '' : 'row-inactive'}">
+      <td><b>${H(u.name)}</b>${u.id === ME.id ? ' <span class="badge badge-muted">You</span>' : ''}</td><td>${H(u.email)}</td>
+      <td>${H(u.phone || '—')}</td><td>${H(ROLE_LABEL[u.role] || u.role)}</td><td>${H(u.warehouse || '—')}</td><td>${H(u.project || '—')}</td>
+      <td><span class="badge ${cls}">${label}</span></td></tr>`;
+  }).join('') : '<tr class="empty-row"><td colspan="7">No users yet.</td></tr>';
 }
-function showLink(link, emailed, what) {
-  document.getElementById('usr-link').innerHTML = `
+function projectOptions(wid, sel) {
+  const list = PROJECTS.filter(p => p.active && String(p.warehouse_id) === String(wid));
+  return `<option value="">${wid ? (list.length ? 'No project' : 'No projects yet – add one below') : 'Choose a warehouse first'}</option>` +
+    list.map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${H(p.name)}</option>`).join('') +
+    (wid ? '<option value="__new">+ New project…</option>' : '');
+}
+function onUserWarehouse() {
+  document.getElementById('uf-proj').innerHTML = projectOptions(val('uf-wh'), '');
+  onUserProject();
+}
+function onUserProject() {
+  const isNew = val('uf-proj') === '__new';
+  document.getElementById('uf-newproj-wrap').style.display = isNew ? '' : 'none';
+  if (isNew) document.getElementById('uf-newproj').focus();
+}
+function openUserForm(id) {
+  const u = id ? USERS.find(x => x.id === id) : null;
+  const self = u && u.id === ME.id;
+  const wid = u ? (u.warehouse_id || '') : '';
+  openPanel(u ? 'Edit user' : 'Add User', u ? u.email : 'They’ll get a link to set their own password', `
+    <div class="pf"><label for="uf-name">Name</label><input id="uf-name" value="${H(u ? u.name : '')}" placeholder="Full name" autocomplete="off"></div>
+    <div class="pf"><label for="uf-email">Email</label><input id="uf-email" type="email" value="${H(u ? u.email : '')}" placeholder="name@company.com" ${u ? 'readonly' : ''} autocomplete="off"></div>
+    <div class="pf"><label for="uf-phone">Contact number</label><input id="uf-phone" type="tel" value="${H(u ? u.phone : '')}" placeholder="+971 50 123 4567" autocomplete="off"></div>
+    <div class="pf"><label for="uf-role">Role</label><select id="uf-role" ${self ? 'disabled' : ''}>
+      ${Object.keys(ROLE_LABEL).map(r => `<option value="${r}" ${(u ? u.role : 'requester') === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select>
+      ${self ? '<span class="pf-hint">You can’t change your own role.</span>' : ''}</div>
+    <div class="p-sec"><i class="fa fa-diagram-project"></i> Project assignment</div>
+    <div class="pf"><label for="uf-wh">Warehouse</label><select id="uf-wh" onchange="onUserWarehouse()">${whOptions(wid, 'No warehouse')}</select></div>
+    <div class="pf"><label for="uf-proj">Project</label><select id="uf-proj" onchange="onUserProject()">${projectOptions(wid, u ? u.project_id : '')}</select>
+      <span class="pf-hint">Projects are listed under the warehouse that supplies them.</span></div>
+    <div class="pf" id="uf-newproj-wrap" style="display:none"><label for="uf-newproj">New project name</label><input id="uf-newproj" placeholder="e.g. NEOM Site A"></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveUserForm(${u ? u.id : 0}, this)"><i class="fa ${u ? 'fa-floppy-disk' : 'fa-user-plus'}"></i> ${u ? 'Save changes' : 'Add User'}</button></div>
+    ${u ? `<div class="p-actions"><button class="pbtn" onclick="userLink(${u.id})"><i class="fa fa-link"></i> ${u.has_password ? 'Password reset link' : 'New invite link'}</button>
+      ${self ? '' : `<button class="pbtn ${u.active ? 'danger' : ''}" onclick="toggleUser(${u.id})"><i class="fa ${u.active ? 'fa-ban' : 'fa-check'}"></i> ${u.active ? 'Deactivate' : 'Activate'}</button>`}</div>
+      <div id="uf-link"></div>` : ''}`);
+}
+async function saveUserForm(id, btn) {
+  const email = val('uf-email').trim(), proj = val('uf-proj');
+  if (!val('uf-name').trim()) { toast('Enter the name.', 'error'); document.getElementById('uf-name').focus(); return; }
+  if (!id && !email) { toast('Enter the email address.', 'error'); document.getElementById('uf-email').focus(); return; }
+  if (proj === '__new' && !val('uf-newproj').trim()) { toast('Enter the new project name.', 'error'); document.getElementById('uf-newproj').focus(); return; }
+  const u = id ? USERS.find(x => x.id === id) : null;
+  const body = {name: val('uf-name'), phone: val('uf-phone'), role: val('uf-role'), warehouse_id: val('uf-wh') || null,
+    project_id: proj && proj !== '__new' ? proj : null, new_project: proj === '__new' ? val('uf-newproj') : ''};
+  await busy(btn, async () => {
+    if (id) {
+      await api('/api/users/' + id, {method: 'PUT', json: Object.assign(body, {active: u.active})});
+      closePanel(); toast('User updated.');
+    } else {
+      const d = await api('/api/users', {json: Object.assign(body, {email})});
+      closePanel(); toast('Added ' + d.user.email + '.'); showLink(d.link, d.emailed, 'invite');
+    }
+    loadUsers();
+  });
+}
+function showLink(link, emailed, what, target = 'usr-link') {
+  const el = document.getElementById(target) || document.getElementById('usr-link');
+  el.innerHTML = `
     <p class="set-help" style="margin:14px 0 0">${emailed ? 'We emailed the ' + what + ' link. You can also copy it:' : 'Email isn’t set up here, so send this ' + what + ' link to the person yourself. It works once.'}</p>
-    <div class="link-box"><input readonly value="${H(link)}" aria-label="${what} link" onclick="this.select()">
+    <div class="link-box" style="margin-bottom:14px"><input readonly value="${H(link)}" aria-label="${what} link" onclick="this.select()">
       <button class="tbl-reset" onclick="copyText('${H(link)}')"><i class="fa fa-copy"></i> Copy</button></div>`;
 }
 async function copyText(t) {
   try { await navigator.clipboard.writeText(t); toast('Link copied.'); }
   catch { toast('Select the link and copy it manually.', 'error'); }
 }
-async function inviteUser() {
-  const email = val('usr-email').trim();
-  if (!email) { toast('Enter an email address.', 'error'); document.getElementById('usr-email').focus(); return; }
-  await busy(document.getElementById('usr-add-btn'), async () => {
-    const d = await api('/api/users', {json: {email, name: val('usr-name'), role: val('usr-role')}});
-    document.getElementById('usr-email').value = ''; document.getElementById('usr-name').value = '';
-    toast('Invited ' + d.user.email + '.'); showLink(d.link, d.emailed, 'invite'); loadUsers();
-  });
-}
-async function setUserRole(id, sel) {
-  const u = USERS.find(x => x.id === id);
-  try { await api('/api/users/' + id, {method: 'PUT', json: {role: sel.value, active: u.active, name: u.name}}); toast('Role changed to ' + ROLE_LABEL[sel.value] + '.'); loadUsers(); }
-  catch (e) { toast(e.message, 'error'); sel.value = u.role; }
-}
 async function toggleUser(id) {
   const u = USERS.find(x => x.id === id);
   if (u.active && !confirm('Deactivate ' + u.email + '? They’ll be signed out and can’t sign in.')) return;
-  await busy(null, async () => { await api('/api/users/' + id, {method: 'PUT', json: {role: u.role, active: !u.active, name: u.name}}); toast(u.active ? 'User deactivated.' : 'User activated.'); loadUsers(); });
+  await busy(null, async () => { await api('/api/users/' + id, {method: 'PUT', json: {role: u.role, active: !u.active, name: u.name}}); closePanel(); toast(u.active ? 'User deactivated.' : 'User activated.'); loadUsers(); });
 }
 async function userLink(id) {
-  await busy(null, async () => { const d = await api('/api/users/' + id + '/link', {method: 'POST'}); showLink(d.link, d.emailed, d.purpose === 'invite' ? 'invite' : 'reset'); });
+  await busy(null, async () => { const d = await api('/api/users/' + id + '/link', {method: 'POST'}); showLink(d.link, d.emailed, d.purpose === 'invite' ? 'invite' : 'reset', 'uf-link'); });
 }
 
 // ── inventory ────────────────────────────────────────────────────
