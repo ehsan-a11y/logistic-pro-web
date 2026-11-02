@@ -841,6 +841,23 @@ th.num{text-align:right}
 .perm{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;cursor:pointer}
 .perm input{width:18px;height:18px;margin-top:1px;accent-color:var(--primary);flex-shrink:0}
 .perm:has(input:checked){border-color:var(--primary);background:var(--primary-light)}
+.ol-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.ol-grid .ol-wide{grid-column:1 / -1}
+.ol-grid .ol-wide3{grid-column:span 3}
+.ol-grid input[readonly]{background:#f1f5f9;color:var(--text)}
+.ol-head,.ol-line{display:grid;grid-template-columns:minmax(0,1fr) 130px 130px 36px;gap:10px;align-items:center}
+.ol-head{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.ol-line{margin-bottom:8px}
+.ol-line select,.ol-line input{height:42px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%}
+.ol-line input{text-align:right}
+.ol-avail{font-weight:700;font-variant-numeric:tabular-nums;padding-right:4px}
+.ol-avail.good{color:#059669}.ol-avail.bad{color:#dc2626}
+.ol-warn{margin-top:12px;padding:10px 14px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px}
+.ol-success{margin-top:14px;padding:12px 14px;border-radius:10px;background:#d1fae5;color:#065f46;font-size:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ol-success .pbtn{margin-left:auto}
+@media(max-width:700px){.ol-grid{grid-template-columns:1fr 1fr}.ol-grid .ol-wide3{grid-column:1 / -1}
+  .ol-head,.ol-line{grid-template-columns:minmax(0,1fr) 70px 80px 36px}.ol-line select,.ol-line input{font-size:16px}}
+@media(max-width:430px){.bn-item{font-size:9.5px !important;letter-spacing:0 !important}}
 .loc-row.lr{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fcfdff}
 .loc-row input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
 .bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
@@ -950,6 +967,10 @@ tr.row-inactive td{opacity:.55}
     <div class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
       <div class="nav-icon"><i class="fa fa-chart-pie"></i></div>
       Dashboard
+    </div>
+    <div class="nav-item" id="nav-orderlist" data-perm="orders.create" onclick="navigate('orderlist')">
+      <div class="nav-icon"><i class="fa fa-file-lines"></i></div>
+      Order List
     </div>
     <div class="nav-item" id="nav-warehouses" onclick="navigate('warehouses')">
       <div class="nav-icon"><i class="fa fa-warehouse"></i></div>
@@ -1232,6 +1253,56 @@ tr.row-inactive td{opacity:.55}
   </div>
 
   <!-- ───────────  SETTINGS  ─────────── -->
+  <!-- ───────────  ORDER LIST  ─────────── -->
+  <div id="page-orderlist" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#ec4899,#db2777);box-shadow:0 4px 14px rgba(236,72,153,.35)"><i class="fa fa-file-lines"></i></div>
+        <div class="page-header-text"><h2>Order List</h2><p>Request hardware for a user and their project</p></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-pen-to-square"></i></div><h3>New order list</h3></div>
+      </div>
+      <div class="set-body">
+        <div class="ol-grid">
+          <div class="pf ol-wide"><label for="ol-user">Requested by</label><select id="ol-user" onchange="onOlUser()"></select></div>
+          <div class="pf"><label for="ol-project">Project</label><input id="ol-project" readonly placeholder="Filled from the user"></div>
+          <div class="pf"><label for="ol-wh">Warehouse</label><input id="ol-wh" readonly placeholder="Filled from the project"></div>
+          <div class="pf"><label for="ol-phone">Contact number</label><input id="ol-phone" readonly placeholder="Filled from the user"></div>
+          <div class="pf"><label for="ol-email">Email</label><input id="ol-email" readonly placeholder="Filled from the user"></div>
+        </div>
+        <div class="ol-warn" id="ol-warn" style="display:none"></div>
+        <div class="p-sec"><i class="fa fa-microchip"></i> Hardware</div>
+        <div class="ol-head" aria-hidden="true"><span>Hardware</span><span class="num">Available qty</span><span class="num">Requested qty</span><span></span></div>
+        <div id="ol-lines"></div>
+        <button type="button" class="pbtn" onclick="addOlLine()" style="margin-top:4px"><i class="fa fa-plus"></i> Add hardware</button>
+        <div class="ol-grid" style="margin-top:16px">
+          <div class="pf"><label for="ol-urg">Urgency</label><select id="ol-urg"><option>Normal</option><option>Urgent</option></select></div>
+          <div class="pf ol-wide3"><label for="ol-notes">Notes (optional)</label><input id="ol-notes" placeholder="e.g. Needed for installation on Monday"></div>
+        </div>
+        <div class="p-actions" style="justify-content:flex-end">
+          <button class="pbtn" style="flex:0 0 auto" onclick="resetOrderListForm()"><i class="fa fa-rotate-left"></i> Clear</button>
+          <button class="pbtn primary" style="flex:0 0 auto;min-width:200px" id="ol-create" onclick="createOrderList(this)"><i class="fa fa-file-circle-plus"></i> Create Order List</button>
+        </div>
+        <div id="ol-done"></div>
+      </div>
+    </div>
+    <div class="table-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-list"></i></div><h3>Order lists</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="oll-count"></span></div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Order</th><th>Date</th><th>Requested by</th><th>Project</th><th>Warehouse</th><th class="num">Qty</th><th>Status</th><th>Export</th></tr></thead>
+          <tbody id="oll-body"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- ───────────  WAREHOUSES  ─────────── -->
   <div id="page-warehouses" class="page">
     <div class="page-header">
@@ -1462,6 +1533,10 @@ tr.row-inactive td{opacity:.55}
     <i class="fa fa-chart-pie"></i>
     <span>Dashboard</span>
   </div>
+  <div class="bn-item" id="bn-orderlist" data-perm="orders.create" onclick="navigate('orderlist')">
+    <i class="fa fa-file-lines"></i>
+    <span>Order List</span>
+  </div>
   <div class="bn-item" id="bn-warehouses" onclick="navigate('warehouses')">
     <i class="fa fa-warehouse"></i>
     <span>Stores</span>
@@ -1518,6 +1593,7 @@ function navigate(page) {
   if (page === 'dashboard') updateDashboard();
   if (page === 'settings' && can('settings')) { loadRecipients(); loadSettingsLists(); }
   if (page === 'warehouses') loadWarehousePage();
+  if (page === 'orderlist') loadOrderListPage();
   if (page === 'orders') loadOrders();
   if (page === 'inventory') loadProducts();
   closeSidebar();
@@ -2649,6 +2725,155 @@ async function loadSettingsLists() {
   await loadRoles();
   await loadUsers();
   renderRoles(); renderProjects();
+}
+
+// ── Order List module ────────────────────────────────────────────
+let PEOPLE = [], OL_CAN_CHOOSE = false;
+async function loadOrderListPage() {
+  try {
+    const [pp, prods, ords] = await Promise.all([api('/api/people'), api('/api/products'), api('/api/orders')]);
+    PEOPLE = pp.people; OL_CAN_CHOOSE = pp.can_choose; PRODUCTS = prods; ORDERS = ords;
+  } catch (e) { toast(e.message, 'error'); }
+  const sel = document.getElementById('ol-user'), cur = sel.value || (OL_CAN_CHOOSE ? '' : String(ME.id));
+  sel.innerHTML = (OL_CAN_CHOOSE ? '<option value="">Choose a user</option>' : '') +
+    PEOPLE.map(u => `<option value="${u.id}">${H(u.name)}${u.project ? ' · ' + H(u.project) : ''}</option>`).join('');
+  sel.value = cur; sel.disabled = !OL_CAN_CHOOSE;
+  onOlUser();
+  if (!document.querySelector('#ol-lines .ol-line')) addOlLine();
+  renderOrderLists();
+}
+function olUser() { return PEOPLE.find(u => String(u.id) === val('ol-user')); }
+function olWarehouseId() { const u = olUser(); return u && u.project_id && u.project_active ? u.project_warehouse_id : null; }
+function onOlUser() {
+  const u = olUser();
+  document.getElementById('ol-project').value = u ? (u.project || '') : '';
+  document.getElementById('ol-wh').value = u ? (u.warehouse || '') : '';
+  document.getElementById('ol-phone').value = u ? (u.phone || '') : '';
+  document.getElementById('ol-email').value = u ? u.email : '';
+  const warn = document.getElementById('ol-warn');
+  if (u && (!u.project_id || !u.project_active)) {
+    warn.style.display = '';
+    warn.innerHTML = '<i class="fa fa-triangle-exclamation"></i> ' + H(u.name) + ' has no active project. ' +
+      (can('settings') ? 'Assign one in Settings → Users before creating an order list.' : 'Ask an admin to assign you a project.');
+  } else warn.style.display = 'none';
+  refreshOlLines();
+}
+function olOptions(sel) {
+  const wid = olWarehouseId();
+  return '<option value="">Choose hardware</option>' + PRODUCTS.filter(p => p.active).map(p => {
+    const a = wid ? availAt(p, wid) : 0;
+    return `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${H(p.sku)} – ${H(p.name)}${wid ? ' (' + a + ' available)' : ''}</option>`;
+  }).join('');
+}
+function addOlLine() {
+  const div = document.createElement('div');
+  div.className = 'ol-line';
+  div.innerHTML = `<select class="ol-p" aria-label="Hardware" onchange="updateOlLine(this.parentElement)">${olOptions('')}</select>
+    <span class="ol-avail num" aria-live="polite">—</span>
+    <input class="ol-q" type="number" min="1" placeholder="0" aria-label="Requested quantity" oninput="updateOlLine(this.parentElement)">
+    <button type="button" class="icon-btn" aria-label="Remove line" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>`;
+  document.getElementById('ol-lines').appendChild(div);
+}
+function updateOlLine(row) {
+  const p = PRODUCTS.find(x => String(x.id) === row.querySelector('.ol-p').value), wid = olWarehouseId();
+  const av = row.querySelector('.ol-avail'), q = parseInt(row.querySelector('.ol-q').value, 10) || 0;
+  if (!p) { av.textContent = '—'; av.className = 'ol-avail num'; return; }
+  const a = wid ? availAt(p, wid) : 0;
+  av.textContent = wid ? fmtN(a) + ' ' + (p.unit || '') : 'No warehouse';
+  av.className = 'ol-avail num ' + (a <= 0 || q > a ? 'bad' : 'good');
+  row.querySelector('.ol-q').max = a;
+}
+function refreshOlLines() {
+  document.querySelectorAll('#ol-lines .ol-line').forEach(r => { const s = r.querySelector('.ol-p'), v = s.value; s.innerHTML = olOptions(v); updateOlLine(r); });
+}
+function resetOrderListForm() {
+  if (OL_CAN_CHOOSE) document.getElementById('ol-user').value = '';
+  document.getElementById('ol-lines').innerHTML = ''; addOlLine();
+  document.getElementById('ol-notes').value = ''; document.getElementById('ol-urg').value = 'Normal';
+  document.getElementById('ol-done').innerHTML = '';
+  onOlUser();
+}
+async function createOrderList(btn) {
+  const u = olUser();
+  if (!u) { toast('Choose who the order list is for.', 'error'); document.getElementById('ol-user').focus(); return; }
+  if (!u.project_id || !u.project_active) { toast(u.name + ' has no active project.', 'error'); return; }
+  const wid = olWarehouseId();
+  const items = [], problems = [];
+  document.querySelectorAll('#ol-lines .ol-line').forEach(r => {
+    const pid = r.querySelector('.ol-p').value, q = parseInt(r.querySelector('.ol-q').value, 10);
+    if (!pid && !q) return;
+    const p = PRODUCTS.find(x => String(x.id) === pid);
+    if (!p) { problems.push('Choose hardware for every line.'); return; }
+    if (!(q > 0)) { problems.push('Enter a requested qty for ' + p.name + '.'); return; }
+    if (q > availAt(p, wid)) problems.push('Only ' + availAt(p, wid) + ' of ' + p.name + ' available.');
+    items.push({product_id: pid, qty: q});
+  });
+  if (problems.length) { toast(problems[0], 'error'); return; }
+  if (!items.length) { toast('Add at least one hardware line.', 'error'); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/orders', {json: {requester_id: u.id, project_id: u.project_id, contact: [u.name, u.phone].filter(Boolean).join(' · '),
+      urgency: val('ol-urg'), notes: val('ol-notes'), items}});
+    toast('Order list ' + d.order.number + ' created. Stock reserved.');
+    document.getElementById('ol-lines').innerHTML = ''; addOlLine(); document.getElementById('ol-notes').value = '';
+    document.getElementById('ol-done').innerHTML = `<div class="ol-success"><i class="fa fa-circle-check"></i> <b>${d.order.number}</b> created for ${H(u.name)} · ${H(u.project)}.
+      <button class="pbtn" style="flex:0 0 auto" onclick="exportOrderPDF(${d.order.id})"><i class="fa fa-file-pdf"></i> Export PDF</button></div>`;
+    await loadOrderListPage(); updateDashboard();
+  });
+}
+function renderOrderLists() {
+  document.getElementById('oll-count').textContent = ORDERS.length + ' order list' + (ORDERS.length !== 1 ? 's' : '');
+  document.getElementById('oll-body').innerHTML = ORDERS.length ? ORDERS.map(o => `
+    <tr><td><a href="#" onclick="event.preventDefault();navigate('orders');openOrder(${o.id})"><b>${o.number}</b></a>${o.urgency === 'Urgent' ? ' <span class="badge badge-urgent">Urgent</span>' : ''}</td>
+      <td>${fmtDate(o.created_at)}</td><td>${H(o.requester || '')}</td><td>${H(o.project || o.destination || '')}</td><td>${H(o.warehouse || '')}</td>
+      <td class="num">${fmtN(o.units)}</td><td><span class="badge badge-${o.status}">${o.status_label}</span></td>
+      <td><button class="tbl-reset" style="height:34px" onclick="exportOrderPDF(${o.id})" aria-label="Export ${o.number} as PDF"><i class="fa fa-file-pdf"></i> PDF</button></td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="8">No order lists yet.</td></tr>';
+}
+
+// ── PDF export ───────────────────────────────────────────────────
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+}
+let _pdfLib = null;
+async function pdfLib() {
+  if (!_pdfLib) _pdfLib = (async () => {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    return window.jspdf.jsPDF;
+  })().catch(e => { _pdfLib = null; throw e; });
+  return _pdfLib;
+}
+async function exportOrderPDF(id) {
+  let o; try { o = await api('/api/orders/' + id); } catch (e) { toast(e.message, 'error'); return; }
+  let jsPDF;
+  try { jsPDF = await pdfLib(); } catch { toast('PDF library couldn’t load. Opening print view instead – choose “Save as PDF”.', 'error'); return printPackingList(id); }
+  const doc = new jsPDF({unit: 'pt', format: 'a4'});
+  const W = doc.internal.pageSize.getWidth(), M = 40;
+  doc.setFillColor(67, 97, 238); doc.rect(0, 0, W, 70, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Order List ' + o.number, M, 32);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text('Logistic Pro - Created ' + fmtDate(o.created_at), M, 52);
+  doc.text('Status: ' + o.status_label + (o.urgency === 'Urgent' ? '  -  URGENT' : ''), W - M, 52, {align: 'right'});
+  doc.setTextColor(30, 41, 59);
+  const info = [['Requested by', o.requester || '—'], ['Email', o.requester_email || '—'], ['Contact number', o.requester_phone || '—'],
+                ['Project', o.project || o.destination || '—'], ['Warehouse', o.warehouse + (o.warehouse_address ? ' (' + o.warehouse_address + ')' : '')]];
+  if (o.notes) info.push(['Notes', o.notes]);
+  doc.autoTable({startY: 90, body: info, theme: 'plain', styles: {fontSize: 10, cellPadding: 4},
+    columnStyles: {0: {fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 110}}, margin: {left: M, right: M}});
+  doc.autoTable({startY: doc.lastAutoTable.finalY + 14, head: [['#', 'SKU', 'Hardware', 'Location', 'Requested qty', 'Issued qty']],
+    body: o.items.map((i, n) => [n + 1, i.sku, i.name, (i.bins || []).map(b => b.code + ' x' + b.qty).join(', '), i.qty_requested + ' ' + (i.unit || ''), i.qty_picked != null ? String(i.qty_picked) : '']),
+    theme: 'grid', headStyles: {fillColor: [67, 97, 238], fontSize: 10}, styles: {fontSize: 10, cellPadding: 6},
+    columnStyles: {0: {cellWidth: 26}, 4: {halign: 'right'}, 5: {halign: 'right'}}, margin: {left: M, right: M}});
+  let y = doc.lastAutoTable.finalY + 60;
+  if (y > doc.internal.pageSize.getHeight() - 80) { doc.addPage(); y = 80; }
+  const colW = (W - 2 * M) / 3;
+  ['Requested by', 'Approved by', 'Issued by'].forEach((t, i) => {
+    const x = M + i * colW;
+    doc.setDrawColor(148, 163, 184); doc.line(x + 6, y, x + colW - 12, y);
+    doc.setFontSize(9); doc.setTextColor(100, 116, 139); doc.text(t, x + 6, y + 14);
+    doc.text('Name / Signature / Date', x + 6, y + 26);
+  });
+  doc.save('Order-List-' + o.number + '.pdf');
+  toast('PDF downloaded: Order-List-' + o.number + '.pdf');
 }
 
 // ── inventory ────────────────────────────────────────────────────
