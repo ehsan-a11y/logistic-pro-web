@@ -289,6 +289,7 @@ def ensure_modules_db():
             db.run('ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS location_id INTEGER')
             db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT')
             db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS project_id INTEGER')
+            db.run('ALTER TABLE orders ADD COLUMN IF NOT EXISTS project_id INTEGER')
         else:
             cols = [r['name'] for r in db.rows('PRAGMA table_info(shipments)')]
             if 'order_id' not in cols:
@@ -301,6 +302,9 @@ def ensure_modules_db():
                 db.run('ALTER TABLE users ADD COLUMN phone TEXT')
             if 'project_id' not in cols:
                 db.run('ALTER TABLE users ADD COLUMN project_id INTEGER')
+            cols = [r['name'] for r in db.rows('PRAGMA table_info(orders)')]
+            if 'project_id' not in cols:
+                db.run('ALTER TABLE orders ADD COLUMN project_id INTEGER')
         import json as _json
         have = {r['key'] for r in db.rows('SELECT key FROM roles')}
         for k in ROLES:
@@ -594,6 +598,22 @@ def _user_assignment(db, d, current=None):
             return None, None, None, 'That project belongs to a different warehouse.'
         wid = pr['warehouse_id']
     return phone, wid, pid, None
+
+
+@app.route('/api/people')
+@requires('orders.create')
+def people():
+    """Users that order lists can be raised for: everyone (managers) or just yourself."""
+    with DB() as db:
+        rows = db.rows('SELECT u.id, u.name, u.email, u.phone, u.role, u.project_id, u.warehouse_id, p.name AS project, '
+                       'p.active AS project_active, COALESCE(pw.id, u.warehouse_id) AS project_warehouse_id, '
+                       'w.name AS warehouse FROM users u LEFT JOIN projects p ON p.id = u.project_id '
+                       'LEFT JOIN warehouses pw ON pw.id = p.warehouse_id '
+                       'LEFT JOIN warehouses w ON w.id = COALESCE(p.warehouse_id, u.warehouse_id) '
+                       'WHERE u.active = 1 ORDER BY u.name')
+    if not can('settings'):
+        rows = [r for r in rows if r['id'] == g.user['id']]
+    return jsonify({'people': rows, 'can_choose': can('settings')})
 
 
 @app.route('/api/users', methods=['POST'])
@@ -1196,9 +1216,10 @@ def stock_transfer():
 
 # ── orders (pick & pack) ──────────────────────────────────────────────────────
 def _order_full(db, oid):
-    o = db.one('SELECT o.*, w.name AS warehouse, u.name AS requester, u.email AS requester_email, '
-               's.awb_no AS awb_no, s.status AS shipment_status '
+    o = db.one('SELECT o.*, w.name AS warehouse, w.address AS warehouse_address, u.name AS requester, u.email AS requester_email, '
+               'u.phone AS requester_phone, pr.name AS project, s.awb_no AS awb_no, s.status AS shipment_status '
                'FROM orders o LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
+               'LEFT JOIN projects pr ON pr.id = o.project_id '
                'LEFT JOIN shipments s ON s.id = o.shipment_id WHERE o.id = $1', (oid,))
     if not o:
         return None
@@ -1236,8 +1257,9 @@ def _notify_roles(roles, subject, lines, extra=None):
 @app.route('/api/orders')
 def orders_list():
     with DB() as db:
-        rows = db.rows('SELECT o.*, w.name AS warehouse, u.name AS requester, s.awb_no AS awb_no FROM orders o '
+        rows = db.rows('SELECT o.*, w.name AS warehouse, u.name AS requester, pr.name AS project, s.awb_no AS awb_no FROM orders o '
                        'LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
+                       'LEFT JOIN projects pr ON pr.id = o.project_id '
                        'LEFT JOIN shipments s ON s.id = o.shipment_id ORDER BY o.id DESC')
         counts = {}
         for r in db.rows('SELECT order_id, COUNT(*) AS n, SUM(qty_requested) AS q FROM order_items GROUP BY order_id'):
@@ -1287,6 +1309,29 @@ def orders_get(oid):
 @requires('orders.create')
 def orders_create():
     d = request.get_json(silent=True) or {}
+    req_id, project = g.user['id'], None
+    with DB() as db:
+        if d.get('requester_id') not in (None, '', g.user['id']) and str(d.get('requester_id')) != str(g.user['id']):
+            if not can('settings'):
+                return jsonify({'success': False, 'error': 'You can only create order lists for yourself.'}), 403
+            ru = db.one('SELECT * FROM users WHERE id = $1 AND active = 1', (d.get('requester_id'),))
+            if not ru:
+                return jsonify({'success': False, 'error': 'Selected user not found.'}), 404
+            req_id = ru['id']
+        pid_raw = d.get('project_id')
+        if pid_raw in (None, ''):
+            ru = db.one('SELECT project_id FROM users WHERE id = $1', (req_id,))
+            pid_raw = ru['project_id'] if ru and d.get('use_user_project') else None
+        if pid_raw not in (None, ''):
+            project = db.one('SELECT * FROM projects WHERE id = $1 AND active = 1', (pid_raw,))
+            if not project:
+                return jsonify({'success': False, 'error': 'Project not found or inactive.'}), 400
+    if project:
+        if d.get('warehouse_id') not in (None, '') and str(d.get('warehouse_id')) != str(project['warehouse_id']):
+            return jsonify({'success': False, 'error': 'That project is supplied from a different warehouse.'}), 400
+        d['warehouse_id'] = project['warehouse_id']
+        if not (d.get('destination') or '').strip():
+            d['destination'] = project['name']
     try:
         wid = int(d.get('warehouse_id'))
     except (TypeError, ValueError):
@@ -1314,9 +1359,9 @@ def orders_create():
             avail = _available(db, pid, wid, smap)
             if avail < q:
                 return jsonify({'success': False, 'error': 'Only {} of {} available in this warehouse.'.format(max(avail, 0), p['name'])}), 400
-        oid = db.insert('INSERT INTO orders (warehouse_id, requester_id, destination, contact, urgency, notes, status, created_at, updated_at) '
-                        "VALUES ($1,$2,$3,$4,$5,$6,'pick_list',$7,$8)",
-                        (wid, g.user['id'], d['destination'].strip(), (d.get('contact') or '').strip(),
+        oid = db.insert('INSERT INTO orders (warehouse_id, requester_id, project_id, destination, contact, urgency, notes, status, created_at, updated_at) '
+                        "VALUES ($1,$2,$3,$4,$5,$6,$7,'pick_list',$8,$9)",
+                        (wid, req_id, project['id'] if project else None, d['destination'].strip(), (d.get('contact') or '').strip(),
                          'Urgent' if d.get('urgency') == 'Urgent' else 'Normal', (d.get('notes') or '').strip(), _now(), _now()))
         for pid, q in want.items():
             db.run('INSERT INTO order_items (order_id, product_id, qty_requested) VALUES ($1,$2,$3)', (oid, pid, q))
