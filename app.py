@@ -263,6 +263,8 @@ def ensure_modules_db():
             zone TEXT, rack TEXT, shelf TEXT, bin TEXT, description TEXT, active INTEGER DEFAULT 1, created_at TEXT)''',
         f'''CREATE TABLE IF NOT EXISTS order_picks (id {pk}, order_id INTEGER NOT NULL, order_item_id INTEGER NOT NULL,
             product_id INTEGER NOT NULL, location_id INTEGER, qty INTEGER NOT NULL)''',
+        f'''CREATE TABLE IF NOT EXISTS projects (id {pk}, name TEXT NOT NULL, warehouse_id INTEGER NOT NULL,
+            active INTEGER DEFAULT 1, created_at TEXT)''',
     ]
     with DB() as db:
         for t in tables:
@@ -270,6 +272,8 @@ def ensure_modules_db():
         if USE_PG:
             db.run('ALTER TABLE shipments ADD COLUMN IF NOT EXISTS order_id INTEGER')
             db.run('ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS location_id INTEGER')
+            db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT')
+            db.run('ALTER TABLE users ADD COLUMN IF NOT EXISTS project_id INTEGER')
         else:
             cols = [r['name'] for r in db.rows('PRAGMA table_info(shipments)')]
             if 'order_id' not in cols:
@@ -277,6 +281,11 @@ def ensure_modules_db():
             cols = [r['name'] for r in db.rows('PRAGMA table_info(stock_movements)')]
             if 'location_id' not in cols:
                 db.run('ALTER TABLE stock_movements ADD COLUMN location_id INTEGER')
+            cols = [r['name'] for r in db.rows('PRAGMA table_info(users)')]
+            if 'phone' not in cols:
+                db.run('ALTER TABLE users ADD COLUMN phone TEXT')
+            if 'project_id' not in cols:
+                db.run('ALTER TABLE users ADD COLUMN project_id INTEGER')
     _modules_ready = True
 
 
@@ -290,6 +299,7 @@ def _public_user(u):
     return {'id': u['id'], 'email': u['email'], 'name': u.get('name') or u['email'],
             'role': u['role'], 'active': bool(u.get('active')),
             'warehouse_id': u.get('warehouse_id'), 'last_login': u.get('last_login'),
+            'phone': u.get('phone') or '', 'project_id': u.get('project_id'),
             'has_password': bool(u.get('password_hash')),
             'perms': sorted(PERMS.get(u['role'], set()))}
 
@@ -489,8 +499,47 @@ def auth_set_password():
 @requires('settings')
 def users_list():
     with DB() as db:
-        rows = db.rows('SELECT * FROM users ORDER BY active DESC, role, email')
-    return jsonify([_public_user(r) for r in rows])
+        rows = db.rows('SELECT u.*, p.name AS project, w.name AS warehouse FROM users u '
+                       'LEFT JOIN projects p ON p.id = u.project_id LEFT JOIN warehouses w ON w.id = u.warehouse_id '
+                       'ORDER BY u.active DESC, u.role, u.email')
+    out = []
+    for r in rows:
+        pu = _public_user(r)
+        pu.update({'project': r.get('project') or '', 'warehouse': r.get('warehouse') or ''})
+        out.append(pu)
+    return jsonify(out)
+
+
+def _user_assignment(db, d, current=None):
+    """Validate phone, warehouse and project from a user form. Returns (phone, warehouse_id, project_id, error)."""
+    phone = (d.get('phone') if 'phone' in d else (current or {}).get('phone') or '') or ''
+    phone = str(phone).strip()
+    if phone and not _re.fullmatch(r'[0-9+()\-\s]{6,20}', phone):
+        return None, None, None, 'Enter a valid contact number (digits, spaces, + - ( ) only).'
+    wid = d.get('warehouse_id') if 'warehouse_id' in d else (current or {}).get('warehouse_id')
+    pid = d.get('project_id') if 'project_id' in d else (current or {}).get('project_id')
+    try:
+        wid = int(wid) if wid not in (None, '') else None
+        pid = int(pid) if pid not in (None, '') else None
+    except (TypeError, ValueError):
+        return None, None, None, 'Invalid warehouse or project.'
+    new_project = (d.get('new_project') or '').strip()
+    if new_project:
+        if not wid:
+            return None, None, None, 'Choose the warehouse the new project belongs to.'
+        ex = db.one('SELECT id FROM projects WHERE warehouse_id = $1 AND LOWER(name) = LOWER($2)', (wid, new_project))
+        pid = ex['id'] if ex else db.insert('INSERT INTO projects (name, warehouse_id, active, created_at) VALUES ($1,$2,1,$3)',
+                                             (new_project, wid, _now()))
+    if wid and not db.one('SELECT id FROM warehouses WHERE id = $1', (wid,)):
+        return None, None, None, 'Warehouse not found.'
+    if pid:
+        pr = db.one('SELECT * FROM projects WHERE id = $1', (pid,))
+        if not pr:
+            return None, None, None, 'Project not found.'
+        if wid and pr['warehouse_id'] != wid:
+            return None, None, None, 'That project belongs to a different warehouse.'
+        wid = pr['warehouse_id']
+    return phone, wid, pid, None
 
 
 @app.route('/api/users', methods=['POST'])
@@ -506,9 +555,12 @@ def users_invite():
     with DB() as db:
         if db.one('SELECT id FROM users WHERE email = $1', (email,)):
             return jsonify({'success': False, 'error': 'That email already has an account.'}), 409
-        uid = db.insert('INSERT INTO users (email, name, role, active, warehouse_id, created_at) VALUES ($1,$2,$3,1,$4,$5)',
-                        (email, (d.get('name') or '').strip() or email.split('@')[0].title(), role,
-                         d.get('warehouse_id') or None, _now()))
+        phone, wid, pid, err = _user_assignment(db, d)
+        if err:
+            return jsonify({'success': False, 'error': err}), 400
+        uid = db.insert('INSERT INTO users (email, name, role, active, warehouse_id, project_id, phone, created_at) '
+                        'VALUES ($1,$2,$3,1,$4,$5,$6,$7)',
+                        (email, (d.get('name') or '').strip() or email.split('@')[0].title(), role, wid, pid, phone, _now()))
         link = _make_token(db, uid, 'invite', 72)
         u = db.one('SELECT * FROM users WHERE id = $1', (uid,))
     sent = _email_link(u, link, 'invite')
@@ -536,9 +588,11 @@ def users_update(uid):
             return jsonify({'success': False, 'error': 'You can’t remove your own admin access.'}), 400
         if u['role'] == 'admin' and (role != 'admin' or not active) and not _active_admins(db, uid):
             return jsonify({'success': False, 'error': 'There must be at least one active admin.'}), 400
-        db.run('UPDATE users SET name = $1, role = $2, active = $3, warehouse_id = $4 WHERE id = $5',
-               ((d.get('name') or u.get('name') or '').strip(), role, active,
-                d.get('warehouse_id', u.get('warehouse_id')) or None, uid))
+        phone, wid, pid, err = _user_assignment(db, d, u)
+        if err:
+            return jsonify({'success': False, 'error': err}), 400
+        db.run('UPDATE users SET name = $1, role = $2, active = $3, warehouse_id = $4, project_id = $5, phone = $6 WHERE id = $7',
+               ((d.get('name') or u.get('name') or '').strip(), role, active, wid, pid, phone, uid))
         u = db.one('SELECT * FROM users WHERE id = $1', (uid,))
     return jsonify({'success': True, 'user': _public_user(u)})
 
@@ -598,6 +652,40 @@ def wh_update(wid):
             return jsonify({'success': False, 'error': 'This warehouse has open orders. Finish or cancel them first.'}), 400
         db.run('UPDATE warehouses SET name = $1, address = $2, manager = $3, active = $4 WHERE id = $5', p + (active, wid))
         return jsonify({'success': True, 'warehouse': db.one('SELECT * FROM warehouses WHERE id = $1', (wid,))})
+
+
+# ── projects (each belongs to a warehouse) ────────────────────────────────────
+@app.route('/api/projects')
+def projects_list():
+    with DB() as db:
+        rows = db.rows('SELECT p.*, w.name AS warehouse FROM projects p LEFT JOIN warehouses w ON w.id = p.warehouse_id '
+                       'ORDER BY p.active DESC, w.name, p.name')
+        counts = {}
+        for r in db.rows('SELECT project_id, COUNT(*) AS n FROM users WHERE project_id IS NOT NULL AND active = 1 GROUP BY project_id'):
+            counts[r['project_id']] = int(r['n'])
+    for r in rows:
+        r['users'] = counts.get(r['id'], 0)
+    return jsonify(rows)
+
+
+@app.route('/api/projects', methods=['POST'])
+@requires('settings')
+def projects_create():
+    d = request.get_json(silent=True) or {}
+    name = (d.get('name') or '').strip()
+    try:
+        wid = int(d.get('warehouse_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a warehouse.'}), 400
+    if not name:
+        return jsonify({'success': False, 'error': 'Enter a project name.'}), 400
+    with DB() as db:
+        if not db.one('SELECT id FROM warehouses WHERE id = $1', (wid,)):
+            return jsonify({'success': False, 'error': 'Warehouse not found.'}), 404
+        if db.one('SELECT id FROM projects WHERE warehouse_id = $1 AND LOWER(name) = LOWER($2)', (wid, name)):
+            return jsonify({'success': False, 'error': 'That project already exists under this warehouse.'}), 409
+        pid = db.insert('INSERT INTO projects (name, warehouse_id, active, created_at) VALUES ($1,$2,1,$3)', (name, wid, _now()))
+    return jsonify({'success': True, 'id': pid})
 
 
 # ── inventory ─────────────────────────────────────────────────────────────────
