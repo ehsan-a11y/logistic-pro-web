@@ -166,7 +166,20 @@ app.config.update(
 )
 BOOTSTRAP_ADMIN = os.environ.get('BOOTSTRAP_ADMIN', 'ehsan@wakecap.com').strip().lower()
 
-ROLES = ['admin', 'requester', 'warehouse', 'logistics']
+PERM_LABELS = {
+    'orders.create':    'Create pick lists',
+    'orders.process':   'Pick and pack orders',
+    'orders.ship':      'Create shipments from orders',
+    'orders.cancel':    'Cancel orders',
+    'stock.adjust':     'Adjust, move stock and manage locations',
+    'products.manage':  'Add and edit products',
+    'returns.receive':  'Receive returns (restock / scrap)',
+    'shipments.edit':   'Add and edit shipments',
+    'shipments.delete': 'Delete shipments',
+    'settings':         'Manage settings, users, roles, projects and warehouses',
+}
+ROLES = ['admin', 'requester', 'warehouse', 'logistics']   # built-in role keys
+ROLE_NAMES = {'admin': 'Admin', 'requester': 'Requester', 'warehouse': 'Warehouse', 'logistics': 'Logistics'}
 PERMS = {
     'admin':     {'shipments.edit', 'shipments.delete', 'products.manage', 'stock.adjust',
                   'orders.create', 'orders.process', 'orders.ship', 'orders.cancel',
@@ -265,6 +278,8 @@ def ensure_modules_db():
             product_id INTEGER NOT NULL, location_id INTEGER, qty INTEGER NOT NULL)''',
         f'''CREATE TABLE IF NOT EXISTS projects (id {pk}, name TEXT NOT NULL, warehouse_id INTEGER NOT NULL,
             active INTEGER DEFAULT 1, created_at TEXT)''',
+        f'''CREATE TABLE IF NOT EXISTS roles (id {pk}, key TEXT UNIQUE NOT NULL, name TEXT NOT NULL, description TEXT,
+            perms TEXT, system INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)''',
     ]
     with DB() as db:
         for t in tables:
@@ -286,6 +301,12 @@ def ensure_modules_db():
                 db.run('ALTER TABLE users ADD COLUMN phone TEXT')
             if 'project_id' not in cols:
                 db.run('ALTER TABLE users ADD COLUMN project_id INTEGER')
+        import json as _json
+        have = {r['key'] for r in db.rows('SELECT key FROM roles')}
+        for k in ROLES:
+            if k not in have:
+                db.run('INSERT INTO roles (key, name, description, perms, system, active, created_at) VALUES ($1,$2,$3,$4,1,1,$5)',
+                       (k, ROLE_NAMES[k], '', _json.dumps(sorted(PERMS[k])), _now()))
     _modules_ready = True
 
 
@@ -301,7 +322,40 @@ def _public_user(u):
             'warehouse_id': u.get('warehouse_id'), 'last_login': u.get('last_login'),
             'phone': u.get('phone') or '', 'project_id': u.get('project_id'),
             'has_password': bool(u.get('password_hash')),
-            'perms': sorted(PERMS.get(u['role'], set()))}
+            'role_name': _role_info(u['role'])['name'],
+            'perms': sorted(_role_info(u['role'])['perms'])}
+
+
+def _roles_map():
+    """{key: {'name', 'perms', 'active', ...}} loaded once per request."""
+    import json as _json
+    cache = getattr(g, '_roles', None) if _has_request() else None
+    if cache is not None:
+        return cache
+    with DB() as db:
+        rows = db.rows('SELECT * FROM roles')
+    out = {}
+    for r in rows:
+        try:
+            perms = set(_json.loads(r.get('perms') or '[]'))
+        except ValueError:
+            perms = set()
+        if r['key'] == 'admin':
+            perms = set(PERM_LABELS)          # admin always has everything
+        out[r['key']] = {'id': r['id'], 'key': r['key'], 'name': r['name'], 'description': r.get('description') or '',
+                         'perms': perms & set(PERM_LABELS), 'system': bool(r.get('system')), 'active': bool(r.get('active'))}
+    if _has_request():
+        g._roles = out
+    return out
+
+
+def _has_request():
+    from flask import has_request_context
+    return has_request_context()
+
+
+def _role_info(key):
+    return _roles_map().get(key) or {'name': ROLE_NAMES.get(key, key), 'perms': set(), 'active': False}
 
 
 def _auth_gate():
@@ -322,7 +376,7 @@ def _auth_gate():
 
 def can(perm):
     u = getattr(g, 'user', None)
-    return bool(u) and perm in PERMS.get(u['role'], set())
+    return bool(u) and perm in _role_info(u['role'])['perms']
 
 
 def requires(perm):
@@ -550,7 +604,7 @@ def users_invite():
     role = d.get('role')
     if not valid_email(email):
         return jsonify({'success': False, 'error': 'Enter a valid email address.'}), 400
-    if role not in ROLES:
+    if not _role_info(role).get('active'):
         return jsonify({'success': False, 'error': 'Choose a role.'}), 400
     with DB() as db:
         if db.one('SELECT id FROM users WHERE email = $1', (email,)):
@@ -582,7 +636,7 @@ def users_update(uid):
             return jsonify({'success': False, 'error': 'Not found'}), 404
         role = d.get('role', u['role'])
         active = 1 if d.get('active', bool(u['active'])) else 0
-        if role not in ROLES:
+        if role != u['role'] and not _role_info(role).get('active'):
             return jsonify({'success': False, 'error': 'Unknown role.'}), 400
         if uid == g.user['id'] and (not active or role != 'admin'):
             return jsonify({'success': False, 'error': 'You can’t remove your own admin access.'}), 400
@@ -686,6 +740,93 @@ def projects_create():
             return jsonify({'success': False, 'error': 'That project already exists under this warehouse.'}), 409
         pid = db.insert('INSERT INTO projects (name, warehouse_id, active, created_at) VALUES ($1,$2,1,$3)', (name, wid, _now()))
     return jsonify({'success': True, 'id': pid})
+
+
+@app.route('/api/projects/<int:pid>', methods=['PUT'])
+@requires('settings')
+def projects_update(pid):
+    d = request.get_json(silent=True) or {}
+    name = (d.get('name') or '').strip()
+    try:
+        wid = int(d.get('warehouse_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a warehouse.'}), 400
+    if not name:
+        return jsonify({'success': False, 'error': 'Enter a project name.'}), 400
+    with DB() as db:
+        pr = db.one('SELECT * FROM projects WHERE id = $1', (pid,))
+        if not pr:
+            return jsonify({'success': False, 'error': 'Project not found.'}), 404
+        if db.one('SELECT id FROM projects WHERE warehouse_id = $1 AND LOWER(name) = LOWER($2) AND id != $3', (wid, name, pid)):
+            return jsonify({'success': False, 'error': 'That project already exists under this warehouse.'}), 409
+        db.run('UPDATE projects SET name = $1, warehouse_id = $2, active = $3 WHERE id = $4',
+               (name, wid, 1 if d.get('active', True) else 0, pid))
+        if wid != pr['warehouse_id']:
+            db.run('UPDATE users SET warehouse_id = $1 WHERE project_id = $2', (wid, pid))
+    return jsonify({'success': True})
+
+
+# ── roles ─────────────────────────────────────────────────────────────────────
+@app.route('/api/roles')
+def roles_list():
+    with DB() as db:
+        counts = {r['role']: int(r['n']) for r in db.rows('SELECT role, COUNT(*) AS n FROM users WHERE active = 1 GROUP BY role')}
+    out = []
+    for r in sorted(_roles_map().values(), key=lambda x: (not x['system'], ROLES.index(x['key']) if x['key'] in ROLES else 0, x['name'].lower())):
+        out.append({'id': r['id'], 'key': r['key'], 'name': r['name'], 'description': r['description'],
+                    'perms': sorted(r['perms']), 'system': r['system'], 'active': r['active'],
+                    'locked': r['key'] == 'admin', 'users': counts.get(r['key'], 0)})
+    return jsonify({'roles': out, 'permissions': [{'key': k, 'label': v} for k, v in PERM_LABELS.items()]})
+
+
+def _role_payload(d):
+    import json as _json
+    name = (d.get('name') or '').strip()
+    if not name:
+        return None, 'Enter a role name.'
+    perms = [p for p in (d.get('perms') or []) if p in PERM_LABELS]
+    return (name, (d.get('description') or '').strip(), _json.dumps(sorted(set(perms)))), None
+
+
+@app.route('/api/roles', methods=['POST'])
+@requires('settings')
+def roles_create():
+    d = request.get_json(silent=True) or {}
+    p, err = _role_payload(d)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    key = _re.sub(r'[^a-z0-9]+', '_', p[0].lower()).strip('_')[:40] or 'role'
+    with DB() as db:
+        if db.one('SELECT id FROM roles WHERE LOWER(name) = LOWER($1)', (p[0],)):
+            return jsonify({'success': False, 'error': 'A role with that name already exists.'}), 409
+        base, n = key, 2
+        while db.one('SELECT id FROM roles WHERE key = $1', (key,)):
+            key, n = '{}_{}'.format(base, n), n + 1
+        rid = db.insert('INSERT INTO roles (key, name, description, perms, system, active, created_at) VALUES ($1,$2,$3,$4,0,1,$5)',
+                        (key, p[0], p[1], p[2], _now()))
+    return jsonify({'success': True, 'id': rid, 'key': key})
+
+
+@app.route('/api/roles/<int:rid>', methods=['PUT'])
+@requires('settings')
+def roles_update(rid):
+    d = request.get_json(silent=True) or {}
+    p, err = _role_payload(d)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+    with DB() as db:
+        r = db.one('SELECT * FROM roles WHERE id = $1', (rid,))
+        if not r:
+            return jsonify({'success': False, 'error': 'Role not found.'}), 404
+        if r['key'] == 'admin':
+            return jsonify({'success': False, 'error': 'The Admin role always has full access and can’t be changed.'}), 400
+        if db.one('SELECT id FROM roles WHERE LOWER(name) = LOWER($1) AND id != $2', (p[0], rid)):
+            return jsonify({'success': False, 'error': 'A role with that name already exists.'}), 409
+        active = 1 if d.get('active', True) else 0
+        if not active and db.one('SELECT id FROM users WHERE role = $1 AND active = 1', (r['key'],)):
+            return jsonify({'success': False, 'error': 'Move the users in this role to another role before deactivating it.'}), 400
+        db.run('UPDATE roles SET name = $1, description = $2, perms = $3, active = $4 WHERE id = $5', p + (active, rid))
+    return jsonify({'success': True})
 
 
 # ── inventory ─────────────────────────────────────────────────────────────────
@@ -1303,9 +1444,9 @@ def orders_cancel(oid):
         o, err = _order_for(db, oid, ORDER_OPEN)
         if err:
             return err
-        if g.user['role'] == 'requester' and o['requester_id'] != g.user['id']:
+        if not can('orders.process') and o['requester_id'] != g.user['id']:
             return jsonify({'success': False, 'error': 'You can only cancel your own pick lists.'}), 403
-        if g.user['role'] == 'requester' and o['status'] != 'pick_list':
+        if not can('orders.process') and o['status'] != 'pick_list':
             return jsonify({'success': False, 'error': 'Picking has started. Ask the warehouse to cancel it.'}), 403
         db.run('DELETE FROM order_picks WHERE order_id = $1', (oid,))
         db.run("UPDATE orders SET status = 'cancelled', cancel_reason = $1, updated_at = $2 WHERE id = $3", (reason, _now(), oid))
