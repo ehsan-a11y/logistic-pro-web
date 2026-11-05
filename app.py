@@ -1278,6 +1278,7 @@ def order_lines():
     """Every product line of every order, with pick-from (or picked-from) locations."""
     with DB() as db:
         lines = db.rows('SELECT i.*, o.status, o.warehouse_id, o.destination, o.urgency, o.created_at, '
+                        'o.boxes, o.weight, o.dimensions, '
                         'p.sku, p.name, p.unit, w.name AS warehouse, u.name AS requester, s.awb_no '
                         'FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id '
                         'LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
