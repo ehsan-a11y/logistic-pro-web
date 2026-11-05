@@ -972,6 +972,10 @@ tr.row-inactive td{opacity:.55}
       <div class="nav-icon"><i class="fa fa-file-lines"></i></div>
       Order List
     </div>
+    <div class="nav-item" id="nav-orders" onclick="navigate('orders')">
+      <div class="nav-icon"><i class="fa fa-box-open"></i></div>
+      Order Packed
+    </div>
     <div class="nav-item" id="nav-warehouses" onclick="navigate('warehouses')">
       <div class="nav-icon"><i class="fa fa-warehouse"></i></div>
       Warehouses
@@ -980,10 +984,6 @@ tr.row-inactive td{opacity:.55}
       <div class="nav-icon"><i class="fa fa-box"></i></div>
       Shipment
       <span class="nav-badge" id="nav-badge" style="display:none">0</span>
-    </div>
-    <div class="nav-item" id="nav-orders" onclick="navigate('orders')">
-      <div class="nav-icon"><i class="fa fa-clipboard-list"></i></div>
-      Orders
     </div>
     <div class="nav-item" id="nav-inventory" onclick="navigate('inventory')">
       <div class="nav-icon"><i class="fa fa-boxes-stacked"></i></div>
@@ -1349,14 +1349,14 @@ tr.row-inactive td{opacity:.55}
   <div id="page-orders" class="page">
     <div class="page-header">
       <div class="page-header-left">
-        <div class="ph-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 14px rgba(245,158,11,.35)"><i class="fa fa-clipboard-list"></i></div>
-        <div class="page-header-text"><h2>Orders</h2><p>Pick lists, picking, packing and dispatch</p></div>
+        <div class="ph-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 14px rgba(245,158,11,.35)"><i class="fa fa-box-open"></i></div>
+        <div class="page-header-text"><h2>Order Packed</h2><p>Pick, pack and dispatch order lists</p></div>
       </div>
       <div class="hdr-actions"><button class="add-btn" data-perm="orders.create" onclick="openNewOrder()"><i class="fa fa-circle-plus"></i> New pick list</button></div>
     </div>
     <div class="table-card">
       <div class="table-hdr">
-        <div class="section-title"><div class="s-icon"><i class="fa fa-list-check"></i></div><h3>Orders</h3></div>
+        <div class="section-title"><div class="s-icon"><i class="fa fa-list-check"></i></div><h3>Order Packed</h3></div>
         <div class="table-hdr-right"><span class="rec-count" id="ord-count">0 orders</span></div>
       </div>
       <div class="mod-tools">
@@ -1537,6 +1537,10 @@ tr.row-inactive td{opacity:.55}
     <i class="fa fa-file-lines"></i>
     <span>Order List</span>
   </div>
+  <div class="bn-item" id="bn-orders" onclick="navigate('orders')">
+    <i class="fa fa-box-open"></i>
+    <span>Packed</span>
+  </div>
   <div class="bn-item" id="bn-warehouses" onclick="navigate('warehouses')">
     <i class="fa fa-warehouse"></i>
     <span>Stores</span>
@@ -1544,10 +1548,6 @@ tr.row-inactive td{opacity:.55}
   <div class="bn-item" id="bn-shipment" onclick="navigate('shipment')">
     <i class="fa fa-box"></i>
     <span>Shipment</span>
-  </div>
-  <div class="bn-item" id="bn-orders" onclick="navigate('orders')">
-    <i class="fa fa-clipboard-list"></i>
-    <span>Orders</span>
   </div>
   <div class="bn-item" id="bn-inventory" onclick="navigate('inventory')">
     <i class="fa fa-boxes-stacked"></i>
