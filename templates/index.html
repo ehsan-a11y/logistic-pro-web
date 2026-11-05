@@ -836,7 +836,7 @@ th.num{text-align:right}
 .loc-row input{height:40px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%;text-transform:uppercase}
 .loc-row input::placeholder{text-transform:none}
 .loc-row .lr-name{grid-column:1 / -1;text-transform:none}
-#oli-body td:nth-child(-n+2),#oli-body td:nth-child(5),#ord-body td:first-child{white-space:nowrap}
+#oli-body td:nth-child(-n+2),#oli-body td:nth-child(5),#oli-body td:nth-child(12){white-space:nowrap}
 .perm-list{display:flex;flex-direction:column;gap:6px}
 .perm{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;cursor:pointer}
 .perm input{width:18px;height:18px;margin-top:1px;accent-color:var(--primary);flex-shrink:0}
@@ -1333,12 +1333,12 @@ tr.row-inactive td{opacity:.55}
     </div>
     <div class="table-card">
       <div class="table-hdr">
-        <div class="section-title"><div class="s-icon"><i class="fa fa-list-check"></i></div><h3>Order Packed</h3></div>
-        <div class="table-hdr-right"><span class="rec-count" id="ord-count">0 orders</span></div>
+        <div class="section-title"><div class="s-icon"><i class="fa fa-cubes"></i></div><h3>Order Items</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="oli-count">0 lines</span></div>
       </div>
       <div class="mod-tools">
-        <input type="search" id="ord-search" placeholder="Search order, destination" aria-label="Search orders" oninput="renderOrders()">
-        <select id="ord-filter" aria-label="Filter orders by status" onchange="renderOrders()">
+        <input type="search" id="ord-search" placeholder="Search order, product, destination" aria-label="Search order items" oninput="renderOrders()">
+        <select id="ord-filter" aria-label="Filter by order status" onchange="renderOrders()">
           <option value="" selected>All orders</option>
           <option value="open">Open orders</option>
           <option value="pick_list">To pick</option>
@@ -1350,20 +1350,8 @@ tr.row-inactive td{opacity:.55}
       </div>
       <div class="tbl-wrap">
         <table class="clickable">
-          <thead><tr><th>Order</th><th>Date</th><th>Warehouse</th><th>Destination</th><th class="num">Items</th><th>Requested by</th><th>Status</th></tr></thead>
-          <tbody id="ord-body"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="table-card" style="margin-top:20px">
-      <div class="table-hdr">
-        <div class="section-title"><div class="s-icon"><i class="fa fa-cubes"></i></div><h3>Order Items</h3></div>
-        <div class="table-hdr-right"><span class="rec-count" id="oli-count">0 lines</span></div>
-      </div>
-      <div class="tbl-wrap">
-        <table class="clickable">
-          <thead><tr><th>Order</th><th>Status</th><th>Warehouse</th><th>Destination</th><th>SKU</th><th>Product</th><th class="num">Requested</th><th class="num">Picked</th><th>Pick from / picked from</th><th>Requested by</th></tr></thead>
-          <tbody id="oli-body"><tr class="empty-row"><td colspan="10">Loading…</td></tr></tbody>
+          <thead><tr><th>Order</th><th>Status</th><th>Warehouse</th><th>Destination</th><th>SKU</th><th>Product</th><th class="num">Requested</th><th class="num">Picked</th><th>Pick from / picked from</th><th class="num">No. of Boxes</th><th class="num">Weight (kg)</th><th>Dimensions</th><th>Requested by</th></tr></thead>
+          <tbody id="oli-body"><tr class="empty-row"><td colspan="13">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -3021,22 +3009,16 @@ function goOrders(status) { document.getElementById('ord-filter').value = status
 function renderOrders() {
   const f = val('ord-filter'), q = (val('ord-search') || '').toLowerCase();
   const lines = ORDER_LINES.filter(l => f === 'open' ? ['pick_list', 'picked', 'packed'].includes(l.status) : (!f || l.status === f))
-    .filter(l => !q || [l.number, l.destination, l.sku, l.name, l.requester, l.awb_no].join(' ').toLowerCase().includes(q));
+    .filter(l => !q || [l.number, l.destination, l.sku, l.name, l.requester, l.awb_no, l.dimensions].join(' ').toLowerCase().includes(q));
   document.getElementById('oli-count').textContent = lines.length + ' line' + (lines.length !== 1 ? 's' : '');
   document.getElementById('oli-body').innerHTML = lines.length ? lines.map(l => `
     <tr onclick="openOrder(${l.order_id})"><td><b>${l.number}</b></td><td><span class="badge badge-${l.status}">${l.status_label}</span></td>
       <td>${H(l.warehouse || '')}</td><td>${H(l.destination || '')}</td><td>${H(l.sku)}</td><td>${H(l.name)}</td>
       <td class="num">${fmtN(l.qty_requested)}</td><td class="num">${l.qty_picked != null ? fmtN(l.qty_picked) : '—'}</td>
-      <td>${l.status === 'cancelled' ? '—' : binChips(l.bins)}</td><td>${H(l.requester || '')}</td></tr>`).join('')
-    : `<tr class="empty-row"><td colspan="10">No order items in this view.</td></tr>`;
-  const rows = ORDERS.filter(o => f === 'open' ? ['pick_list', 'picked', 'packed'].includes(o.status) : (!f || o.status === f))
-    .filter(o => !q || (o.number + ' ' + (o.destination || '') + ' ' + (o.awb_no || '') + ' ' + (o.requester || '')).toLowerCase().includes(q));
-  document.getElementById('ord-count').textContent = rows.length + ' order' + (rows.length !== 1 ? 's' : '');
-  document.getElementById('ord-body').innerHTML = rows.length ? rows.map(o => `
-    <tr onclick="openOrder(${o.id})"><td><b>${o.number}</b>${o.urgency === 'Urgent' ? ' <span class="badge badge-urgent">Urgent</span>' : ''}</td>
-      <td>${fmtDate(o.created_at)}</td><td>${H(o.warehouse || '')}</td><td>${H(o.destination || '')}</td>
-      <td class="num">${fmtN(o.units)}</td><td>${H(o.requester || '')}</td><td><span class="badge badge-${o.status}">${o.status_label}</span></td></tr>`).join('')
-    : `<tr class="empty-row"><td colspan="7">${ORDERS.length ? 'No orders in this view.' : (can('orders.create') ? 'No orders yet. Click “New pick list” to request items.' : 'No orders yet.')}</td></tr>`;
+      <td>${l.status === 'cancelled' ? '—' : binChips(l.bins)}</td>
+      <td class="num">${l.boxes != null ? fmtN(l.boxes) : '—'}</td><td class="num">${l.weight != null && l.weight !== '' ? Number(l.weight).toLocaleString('en-US', {maximumFractionDigits: 2}) : '—'}</td>
+      <td>${H(l.dimensions || '—')}</td><td>${H(l.requester || '')}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="13">No order items in this view.</td></tr>`;
 }
 async function openNewOrder() {
   if (!WH.some(w => w.active)) { toast('No warehouses yet. An admin needs to add one in Settings.', 'error'); return; }
