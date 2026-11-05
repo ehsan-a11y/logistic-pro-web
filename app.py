@@ -1278,7 +1278,7 @@ def order_lines():
     """Every product line of every order, with pick-from (or picked-from) locations."""
     with DB() as db:
         lines = db.rows('SELECT i.*, o.status, o.warehouse_id, o.destination, o.urgency, o.created_at, '
-                        'o.boxes, o.weight, o.dimensions, '
+                        'o.boxes, o.weight, o.dimensions, o.requester_id, '
                         'p.sku, p.name, p.unit, w.name AS warehouse, u.name AS requester, s.awb_no '
                         'FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id '
                         'LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
@@ -1531,6 +1531,54 @@ def orders_return(oid):
         db.run('UPDATE orders SET return_action = $1, updated_at = $2 WHERE id = $3', (action, _now(), oid))
         o = _order_full(db, oid)
     return jsonify({'success': True, 'order': o})
+
+
+def _delete_check(o):
+    """Return an error response if the current user may not delete this order (or its lines), else None."""
+    if o['status'] == 'shipped':
+        return jsonify({'success': False, 'error': 'This order has already shipped. Delete its shipment in Shipment first '
+                                                    '(that puts the stock back), then you can delete it here.'}), 409
+    if can('orders.process') or can('settings'):
+        return None
+    if can('orders.cancel') and o['requester_id'] == g.user['id'] and o['status'] == 'pick_list':
+        return None
+    return jsonify({'success': False, 'error': 'You don’t have permission to delete this order.'}), 403
+
+
+@app.route('/api/orders/<int:oid>', methods=['DELETE'])
+def orders_delete(oid):
+    with DB() as db:
+        o = db.one('SELECT * FROM orders WHERE id = $1', (oid,))
+        if not o:
+            return jsonify({'success': False, 'error': 'Order not found.'}), 404
+        err = _delete_check(o)
+        if err:
+            return err
+        db.run('DELETE FROM order_picks WHERE order_id = $1', (oid,))
+        db.run('DELETE FROM order_items WHERE order_id = $1', (oid,))
+        db.run('DELETE FROM orders WHERE id = $1', (oid,))
+    return jsonify({'success': True, 'number': 'PL-{:04d}'.format(oid)})
+
+
+@app.route('/api/order-items/<int:iid>', methods=['DELETE'])
+def order_item_delete(iid):
+    with DB() as db:
+        it = db.one('SELECT * FROM order_items WHERE id = $1', (iid,))
+        if not it:
+            return jsonify({'success': False, 'error': 'Item not found.'}), 404
+        o = db.one('SELECT * FROM orders WHERE id = $1', (it['order_id'],))
+        err = _delete_check(o)
+        if err:
+            return err
+        db.run('DELETE FROM order_picks WHERE order_item_id = $1', (iid,))
+        db.run('DELETE FROM order_items WHERE id = $1', (iid,))
+        left = db.one('SELECT COUNT(*) AS n FROM order_items WHERE order_id = $1', (o['id'],))['n']
+        if not left:
+            db.run('DELETE FROM order_picks WHERE order_id = $1', (o['id'],))
+            db.run('DELETE FROM orders WHERE id = $1', (o['id'],))
+        else:
+            db.run('UPDATE orders SET updated_at = $1 WHERE id = $2', (_now(), o['id']))
+    return jsonify({'success': True, 'order_deleted': not left, 'number': 'PL-{:04d}'.format(o['id'])})
 
 
 def unlink_order_shipment(db, sid):
