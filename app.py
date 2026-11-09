@@ -278,6 +278,7 @@ def ensure_modules_db():
             product_id INTEGER NOT NULL, location_id INTEGER, qty INTEGER NOT NULL)''',
         f'''CREATE TABLE IF NOT EXISTS projects (id {pk}, name TEXT NOT NULL, warehouse_id INTEGER NOT NULL,
             active INTEGER DEFAULT 1, created_at TEXT)''',
+        f'''CREATE TABLE IF NOT EXISTS categories (id {pk}, name TEXT NOT NULL, active INTEGER DEFAULT 1, created_at TEXT)''',
         f'''CREATE TABLE IF NOT EXISTS roles (id {pk}, key TEXT UNIQUE NOT NULL, name TEXT NOT NULL, description TEXT,
             perms TEXT, system INTEGER DEFAULT 0, active INTEGER DEFAULT 1, created_at TEXT)''',
     ]
@@ -306,6 +307,12 @@ def ensure_modules_db():
             if 'project_id' not in cols:
                 db.run('ALTER TABLE orders ADD COLUMN project_id INTEGER')
         import json as _json
+        known = {(r['name'] or '').strip().lower() for r in db.rows('SELECT name FROM categories')}
+        for r in db.rows("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ''"):
+            c = r['category'].strip()
+            if c and c.lower() not in known:
+                db.run('INSERT INTO categories (name, active, created_at) VALUES ($1, 1, $2)', (c, _now()))
+                known.add(c.lower())
         have = {r['key'] for r in db.rows('SELECT key FROM roles')}
         for k in ROLES:
             if k not in have:
@@ -1093,6 +1100,20 @@ def products_list():
     return jsonify(out)
 
 
+def _ensure_category(db, name):
+    """Return the saved spelling of a category, creating it if it is new ('' stays '')."""
+    name = (name or '').strip()
+    if not name:
+        return ''
+    ex = db.one('SELECT name, active FROM categories WHERE LOWER(name) = LOWER($1)', (name,))
+    if ex:
+        if not ex.get('active'):
+            db.run('UPDATE categories SET active = 1 WHERE LOWER(name) = LOWER($1)', (name,))
+        return ex['name']
+    db.run('INSERT INTO categories (name, active, created_at) VALUES ($1, 1, $2)', (name, _now()))
+    return name
+
+
 def _product_payload(d):
     sku = (d.get('sku') or '').strip().upper()
     name = (d.get('name') or '').strip()
@@ -1116,6 +1137,7 @@ def products_create():
     with DB() as db:
         if db.one('SELECT id FROM products WHERE sku = $1', (p[0],)):
             return jsonify({'success': False, 'error': 'That SKU already exists.'}), 409
+        p = p[:3] + (_ensure_category(db, p[3]),) + p[4:]
         pid = db.insert('INSERT INTO products (sku, name, unit, category, min_qty, unit_value, active, created_at) '
                         'VALUES ($1,$2,$3,$4,$5,$6,1,$7)', p + (_now(),))
         for o in d.get('opening') or []:
@@ -1140,8 +1162,59 @@ def products_update(pid):
     with DB() as db:
         if db.one('SELECT id FROM products WHERE sku = $1 AND id != $2', (p[0], pid)):
             return jsonify({'success': False, 'error': 'That SKU already exists.'}), 409
+        p = p[:3] + (_ensure_category(db, p[3]),) + p[4:]
         db.run('UPDATE products SET sku=$1, name=$2, unit=$3, category=$4, min_qty=$5, unit_value=$6, active=$7 WHERE id=$8',
                p + (1 if d.get('active', True) else 0, pid))
+    return jsonify({'success': True})
+
+
+@app.route('/api/categories')
+def categories_list():
+    with DB() as db:
+        rows = db.rows('SELECT * FROM categories ORDER BY active DESC, LOWER(name)')
+        counts = {}
+        for r in db.rows("SELECT LOWER(category) AS c, COUNT(*) AS n FROM products WHERE category IS NOT NULL AND category != '' GROUP BY LOWER(category)"):
+            counts[r['c']] = int(r['n'])
+    for r in rows:
+        r['products'] = counts.get((r['name'] or '').lower(), 0)
+    return jsonify(rows)
+
+
+@app.route('/api/categories', methods=['POST'])
+@requires('products.manage')
+def categories_create():
+    name = ((request.get_json(silent=True) or {}).get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Enter a category name.'}), 400
+    if len(name) > 60:
+        return jsonify({'success': False, 'error': 'Keep the category name under 60 characters.'}), 400
+    with DB() as db:
+        ex = db.one('SELECT id, active FROM categories WHERE LOWER(name) = LOWER($1)', (name,))
+        if ex and ex.get('active'):
+            return jsonify({'success': False, 'error': 'That category already exists.'}), 409
+        if ex:
+            db.run('UPDATE categories SET active = 1 WHERE id = $1', (ex['id'],))
+            return jsonify({'success': True, 'id': ex['id'], 'reactivated': True})
+        cid = db.insert('INSERT INTO categories (name, active, created_at) VALUES ($1, 1, $2)', (name, _now()))
+    return jsonify({'success': True, 'id': cid})
+
+
+@app.route('/api/categories/<int:cid>', methods=['PUT'])
+@requires('products.manage')
+def categories_update(cid):
+    d = request.get_json(silent=True) or {}
+    name = (d.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Enter a category name.'}), 400
+    with DB() as db:
+        cat = db.one('SELECT * FROM categories WHERE id = $1', (cid,))
+        if not cat:
+            return jsonify({'success': False, 'error': 'Category not found.'}), 404
+        if db.one('SELECT id FROM categories WHERE LOWER(name) = LOWER($1) AND id != $2', (name, cid)):
+            return jsonify({'success': False, 'error': 'Another category already has that name.'}), 409
+        db.run('UPDATE categories SET name = $1, active = $2 WHERE id = $3', (name, 1 if d.get('active', True) else 0, cid))
+        if name != cat['name']:
+            db.run('UPDATE products SET category = $1 WHERE LOWER(category) = LOWER($2)', (name, cat['name']))
     return jsonify({'success': True})
 
 
