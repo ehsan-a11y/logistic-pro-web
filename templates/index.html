@@ -836,7 +836,12 @@ th.num{text-align:right}
 .loc-row input{height:40px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%;text-transform:uppercase}
 .loc-row input::placeholder{text-transform:none}
 .loc-row .lr-name{grid-column:1 / -1;text-transform:none}
-#oli-body td:nth-child(-n+2),#oli-body td:nth-child(5),#oli-body td:nth-child(12){white-space:nowrap}
+#oli-body td:first-child,#oli-body td:nth-child(4),#oli-body td:nth-child(11),#oli-body td:nth-child(12),#oli-body td:nth-child(13){white-space:nowrap}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.del-btn{width:34px;height:34px;border:none;border-radius:9px;background:none;color:#94a3b8;cursor:pointer;display:grid;place-items:center}
+.del-btn:hover{background:#fee2e2;color:#dc2626}
+.del-btn:focus-visible{outline:none;box-shadow:0 0 0 3px #fecaca}
+.del-btn:disabled{opacity:.35;cursor:not-allowed;background:none;color:#94a3b8}
 .perm-list{display:flex;flex-direction:column;gap:6px}
 .perm{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;cursor:pointer}
 .perm input{width:18px;height:18px;margin-top:1px;accent-color:var(--primary);flex-shrink:0}
@@ -1273,8 +1278,8 @@ tr.row-inactive td{opacity:.55}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Order</th><th>Date</th><th>Requested by</th><th>Project</th><th>Warehouse</th><th class="num">Qty</th><th>Status</th><th>Export</th></tr></thead>
-          <tbody id="oll-body"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+          <thead><tr><th>Order</th><th>Date</th><th>Requested by</th><th>Project</th><th>Warehouse</th><th class="num">Qty</th><th>Status</th><th>Export</th><th><span class="sr-only">Delete</span></th></tr></thead>
+          <tbody id="oll-body"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1329,7 +1334,6 @@ tr.row-inactive td{opacity:.55}
         <div class="ph-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 14px rgba(245,158,11,.35)"><i class="fa fa-box-open"></i></div>
         <div class="page-header-text"><h2>Order Packed</h2><p>Pick, pack and dispatch order lists</p></div>
       </div>
-      <div class="hdr-actions"><button class="add-btn" data-perm="orders.create" onclick="openNewOrder()"><i class="fa fa-circle-plus"></i> New pick list</button></div>
     </div>
     <div class="table-card">
       <div class="table-hdr">
@@ -1350,8 +1354,8 @@ tr.row-inactive td{opacity:.55}
       </div>
       <div class="tbl-wrap">
         <table class="clickable">
-          <thead><tr><th>Order</th><th>Status</th><th>Warehouse</th><th>Destination</th><th>SKU</th><th>Product</th><th class="num">Requested</th><th class="num">Picked</th><th>Pick from / picked from</th><th class="num">No. of Boxes</th><th class="num">Weight (kg)</th><th>Dimensions</th><th>Requested by</th></tr></thead>
-          <tbody id="oli-body"><tr class="empty-row"><td colspan="13">Loading…</td></tr></tbody>
+          <thead><tr><th>Order</th><th>Warehouse</th><th>Destination</th><th>SKU</th><th>Product</th><th class="num">Requested</th><th class="num">Picked</th><th>Pick From</th><th class="num">No. of Boxes</th><th class="num">Weight (kg)</th><th>Dimensions</th><th>Status</th><th>Requested by</th><th><span class="sr-only">Delete</span></th></tr></thead>
+          <tbody id="oli-body"><tr class="empty-row"><td colspan="14">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -2810,8 +2814,43 @@ function renderOrderLists() {
     <tr><td><a href="#" onclick="event.preventDefault();navigate('orders');openOrder(${o.id})"><b>${o.number}</b></a>${o.urgency === 'Urgent' ? ' <span class="badge badge-urgent">Urgent</span>' : ''}</td>
       <td>${fmtDate(o.created_at)}</td><td>${H(o.requester || '')}</td><td>${H(o.project || o.destination || '')}</td><td>${H(o.warehouse || '')}</td>
       <td class="num">${fmtN(o.units)}</td><td><span class="badge badge-${o.status}">${o.status_label}</span></td>
-      <td><button class="tbl-reset" style="height:34px" onclick="exportOrderPDF(${o.id})" aria-label="Export ${o.number} as PDF"><i class="fa fa-file-pdf"></i> PDF</button></td></tr>`).join('')
-    : '<tr class="empty-row"><td colspan="8">No order lists yet.</td></tr>';
+      <td><button class="tbl-reset" style="height:34px" onclick="exportOrderPDF(${o.id})" aria-label="Export ${o.number} as PDF"><i class="fa fa-file-pdf"></i> PDF</button></td>
+      <td>${delBtn(o, 'deleteOrderList(' + o.id + ', event)', 'Delete order list ' + o.number)}</td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="9">No order lists yet.</td></tr>';
+}
+
+// ── delete order lists / order lines ─────────────────────────────
+function canDeleteOrder(o) {
+  if (o.status === 'shipped') return false;
+  if (can('orders.process') || can('settings')) return true;
+  return can('orders.cancel') && o.requester_id === ME.id && o.status === 'pick_list';
+}
+function delBtn(o, onclick, label) {
+  if (!(can('orders.process') || can('settings') || can('orders.cancel'))) return '';
+  const ok = canDeleteOrder(o);
+  const why = o.status === 'shipped' ? 'Already shipped – delete its shipment first' : 'You can’t delete this order';
+  return `<button class="del-btn" ${ok ? `onclick="${onclick}"` : 'disabled'} title="${H(ok ? label : why)}" aria-label="${H(ok ? label : why)}"><i class="fa fa-trash-can"></i></button>`;
+}
+async function deleteOrderList(id, ev) {
+  if (ev) ev.stopPropagation();
+  const o = ORDERS.find(x => x.id === id);
+  if (!confirm('Delete order list ' + (o ? o.number : '') + '?\n\nAll its items are removed and any reserved stock is released. This can’t be undone.')) return;
+  await busy(null, async () => {
+    const d = await api('/api/orders/' + id, {method: 'DELETE'});
+    toast('Order list ' + d.number + ' deleted.');
+    await loadOrderListPage(); updateDashboard();
+  });
+}
+async function deleteOrderLine(id, ev) {
+  if (ev) ev.stopPropagation();
+  const l = ORDER_LINES.find(x => x.id === id);
+  const only = l && ORDER_LINES.filter(x => x.order_id === l.order_id).length === 1;
+  if (!confirm('Delete ' + (l ? l.name + ' from ' + l.number : 'this item') + '?' + (only ? '\n\nIt’s the only item, so the whole order ' + l.number + ' will be deleted.' : '') + '\n\nReserved stock is released. This can’t be undone.')) return;
+  await busy(null, async () => {
+    const d = await api('/api/order-items/' + id, {method: 'DELETE'});
+    toast(d.order_deleted ? 'Order ' + d.number + ' deleted.' : 'Item removed from ' + d.number + '.');
+    await loadOrders(); updateDashboard();
+  });
 }
 
 // ── PDF export ───────────────────────────────────────────────────
@@ -3012,13 +3051,14 @@ function renderOrders() {
     .filter(l => !q || [l.number, l.destination, l.sku, l.name, l.requester, l.awb_no, l.dimensions].join(' ').toLowerCase().includes(q));
   document.getElementById('oli-count').textContent = lines.length + ' line' + (lines.length !== 1 ? 's' : '');
   document.getElementById('oli-body').innerHTML = lines.length ? lines.map(l => `
-    <tr onclick="openOrder(${l.order_id})"><td><b>${l.number}</b></td><td><span class="badge badge-${l.status}">${l.status_label}</span></td>
+    <tr onclick="openOrder(${l.order_id})"><td><b>${l.number}</b></td>
       <td>${H(l.warehouse || '')}</td><td>${H(l.destination || '')}</td><td>${H(l.sku)}</td><td>${H(l.name)}</td>
       <td class="num">${fmtN(l.qty_requested)}</td><td class="num">${l.qty_picked != null ? fmtN(l.qty_picked) : '—'}</td>
       <td>${l.status === 'cancelled' ? '—' : binChips(l.bins)}</td>
       <td class="num">${l.boxes != null ? fmtN(l.boxes) : '—'}</td><td class="num">${l.weight != null && l.weight !== '' ? Number(l.weight).toLocaleString('en-US', {maximumFractionDigits: 2}) : '—'}</td>
-      <td>${H(l.dimensions || '—')}</td><td>${H(l.requester || '')}</td></tr>`).join('')
-    : `<tr class="empty-row"><td colspan="13">No order items in this view.</td></tr>`;
+      <td>${H(l.dimensions || '—')}</td><td><span class="badge badge-${l.status}">${l.status_label}</span></td><td>${H(l.requester || '')}</td>
+      <td>${delBtn(l, 'deleteOrderLine(' + l.id + ', event)', 'Delete ' + l.name + ' from ' + l.number)}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="14">No order items in this view.</td></tr>`;
 }
 async function openNewOrder() {
   if (!WH.some(w => w.active)) { toast('No warehouses yet. An admin needs to add one in Settings.', 'error'); return; }
