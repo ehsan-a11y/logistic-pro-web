@@ -1370,6 +1370,7 @@ tr.row-inactive td{opacity:.55}
         <div class="page-header-text"><h2>Inventory</h2><p>Products and stock by warehouse</p></div>
       </div>
       <div class="hdr-actions">
+        <button class="add-btn alt" data-perm="products.manage" onclick="openCategories()"><i class="fa fa-tags"></i> Categories</button>
         <button class="add-btn alt" data-perm="stock.adjust" onclick="openTransfer()"><i class="fa fa-right-left"></i> Transfer</button>
         <button class="add-btn alt" data-perm="stock.adjust" onclick="openAdjust()"><i class="fa fa-sliders"></i> Adjust stock</button>
         <button class="add-btn" data-perm="products.manage" onclick="openProductForm()"><i class="fa fa-circle-plus"></i> Add product</button>
@@ -1383,6 +1384,7 @@ tr.row-inactive td{opacity:.55}
       <div class="mod-tools">
         <input type="search" id="inv-search" placeholder="Search SKU or product" aria-label="Search products" oninput="renderProducts()">
         <select id="inv-wh" aria-label="Warehouse" onchange="loadProducts()"><option value="">All warehouses</option></select>
+        <select id="inv-cat" aria-label="Category" onchange="renderProducts()"><option value="">All categories</option></select>
         <select id="inv-filter" aria-label="Stock status" onchange="renderProducts()">
           <option value="">All stock</option><option value="low">Low stock</option><option value="out">Out of stock</option>
         </select>
@@ -2967,14 +2969,23 @@ function stockState(p) {
   if (p.min_qty && p.on_hand < p.min_qty) return ['low', 'Low stock'];
   return ['ok', 'In stock'];
 }
+let CATEGORIES = [];
+async function loadCategories() {
+  try { CATEGORIES = await api('/api/categories'); } catch { CATEGORIES = CATEGORIES || []; }
+  const sel = document.getElementById('inv-cat'), cur = sel.value;
+  sel.innerHTML = '<option value="">All categories</option>' + CATEGORIES.filter(c => c.active || c.products)
+    .map(c => `<option value="${H(c.name)}">${H(c.name)}</option>`).join('');
+  sel.value = cur;
+}
 async function loadProducts() {
   const wid = val('inv-wh');
-  try { PRODUCTS = await api('/api/products' + (wid ? '?warehouse_id=' + wid : '')); } catch (e) { PRODUCTS = []; toast(e.message, 'error'); }
+  try { [PRODUCTS] = await Promise.all([api('/api/products' + (wid ? '?warehouse_id=' + wid : '')), loadCategories()]); } catch (e) { PRODUCTS = []; toast(e.message, 'error'); }
   renderProducts();
 }
 function renderProducts() {
-  const q = (val('inv-search') || '').toLowerCase(), f = val('inv-filter');
+  const q = (val('inv-search') || '').toLowerCase(), f = val('inv-filter'), cat = (val('inv-cat') || '').toLowerCase();
   const rows = PRODUCTS.filter(p => p.active || q).filter(p => !q || (p.sku + ' ' + p.name + ' ' + (p.category || '')).toLowerCase().includes(q))
+    .filter(p => !cat || (p.category || '').toLowerCase() === cat)
     .filter(p => !f || stockState(p)[0] === f);
   document.getElementById('inv-count').textContent = rows.length + ' product' + (rows.length !== 1 ? 's' : '');
   document.getElementById('inv-body').innerHTML = rows.length ? rows.map(p => {
@@ -3012,7 +3023,60 @@ async function openProduct(id) {
       <span class="q ${m.qty > 0 ? 'pos' : 'neg'}">${m.qty > 0 ? '+' : ''}${fmtN(m.qty)}</span></li>`).join('') : '<li><span class="pf-hint">No movements yet.</span></li>';
   } catch {}
 }
+function categoryOptions(sel) {
+  const list = CATEGORIES.filter(c => c.active || (sel && c.name.toLowerCase() === String(sel).toLowerCase()));
+  const known = list.some(c => sel && c.name.toLowerCase() === String(sel).toLowerCase());
+  return '<option value="">No category</option>' +
+    list.map(c => `<option value="${H(c.name)}" ${sel && c.name.toLowerCase() === String(sel).toLowerCase() ? 'selected' : ''}>${H(c.name)}</option>`).join('') +
+    (sel && !known ? `<option value="${H(sel)}" selected>${H(sel)}</option>` : '') +
+    (can('products.manage') ? '<option value="__new">+ New category…</option>' : '');
+}
+function onProductCat() {
+  const isNew = val('pp-cat') === '__new';
+  document.getElementById('pp-newcat-wrap').style.display = isNew ? '' : 'none';
+  if (isNew) document.getElementById('pp-newcat').focus();
+}
+// ── categories panel ─────────────────────────────────────────────
+async function openCategories() {
+  await loadCategories();
+  openPanel('Categories', 'Used in the Category dropdown when adding products', `
+    <div class="set-add"><input id="cat-new" placeholder="New category, e.g. Accessories" aria-label="New category name" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory(document.getElementById('cat-add'))}">
+      <button type="button" class="mail-add-btn" id="cat-add" onclick="addCategory(this)"><i class="fa fa-plus"></i> Add</button></div>
+    <table class="mini" style="margin-top:16px"><thead><tr><th>Category</th><th class="num">Products</th><th></th></tr></thead><tbody>
+      ${CATEGORIES.length ? CATEGORIES.map(c => `<tr class="${c.active ? '' : 'row-inactive'}"><td><b>${H(c.name)}</b>${c.active ? '' : ' <span class="badge badge-muted">Inactive</span>'}</td>
+        <td class="num">${fmtN(c.products)}</td>
+        <td class="num" style="white-space:nowrap"><button class="icon-btn" style="display:inline-grid;background:#eef2ff;color:var(--primary)" title="Rename" aria-label="Rename ${H(c.name)}" onclick="renameCategory(${c.id})"><i class="fa fa-pen"></i></button>
+          <button class="icon-btn" style="display:inline-grid" title="${c.active ? 'Deactivate' : 'Activate'}" aria-label="${c.active ? 'Deactivate' : 'Activate'} ${H(c.name)}" onclick="toggleCategory(${c.id})"><i class="fa ${c.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button></td></tr>`).join('')
+        : '<tr><td colspan="3" class="pf-hint">No categories yet. Add your first one above.</td></tr>'}
+    </tbody></table>
+    <p class="pf-hint" style="margin-top:12px">Renaming a category updates every product in it. Inactive categories are hidden from the dropdown but kept on existing products.</p>`);
+}
+async function addCategory(btn) {
+  const name = val('cat-new').trim();
+  if (!name) { toast('Enter a category name.', 'error'); document.getElementById('cat-new').focus(); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/categories', {json: {name}});
+    toast(d.reactivated ? 'Category re-activated.' : 'Category added.'); await openCategories(); loadProducts();
+  });
+}
+async function renameCategory(id) {
+  const c = CATEGORIES.find(x => x.id === id); if (!c) return;
+  const name = prompt('Rename category “' + c.name + '” to:', c.name);
+  if (name === null || !name.trim() || name.trim() === c.name) return;
+  await busy(null, async () => {
+    await api('/api/categories/' + id, {method: 'PUT', json: {name: name.trim(), active: !!c.active}});
+    toast('Category renamed' + (c.products ? ' – ' + c.products + ' product' + (c.products !== 1 ? 's' : '') + ' updated.' : '.')); await openCategories(); loadProducts();
+  });
+}
+async function toggleCategory(id) {
+  const c = CATEGORIES.find(x => x.id === id); if (!c) return;
+  await busy(null, async () => {
+    await api('/api/categories/' + id, {method: 'PUT', json: {name: c.name, active: !c.active}});
+    toast(c.active ? 'Category deactivated.' : 'Category activated.'); await openCategories(); loadProducts();
+  });
+}
 async function openProductForm(id) {
+  await loadCategories();
   const p = id ? PRODUCTS.find(x => x.id === id) : null;
   if (!p && !WH.some(w => w.active)) { toast('Add a warehouse first on the Warehouses page.', 'error'); return; }
   if (!p) await Promise.all(WH.filter(w => w.active).map(w => getLocs(w.id)));
@@ -3021,7 +3085,8 @@ async function openProductForm(id) {
     <div class="pf-row"><div class="pf"><label for="pp-sku">SKU / code</label><input id="pp-sku" value="${H(p ? p.sku : '')}" placeholder="e.g. WC-HUB-01"></div>
       <div class="pf"><label for="pp-unit">Unit</label><input id="pp-unit" value="${H(p ? p.unit : 'pcs')}"></div></div>
     <div class="pf"><label for="pp-name">Product name</label><input id="pp-name" value="${H(p ? p.name : '')}"></div>
-    <div class="pf"><label for="pp-cat">Category</label><input id="pp-cat" value="${H(p ? p.category || '' : '')}" placeholder="e.g. Devices, Accessories"></div>
+    <div class="pf"><label for="pp-cat">Category</label><select id="pp-cat" onchange="onProductCat()">${categoryOptions(p ? p.category : '')}</select></div>
+    <div class="pf" id="pp-newcat-wrap" style="display:none"><label for="pp-newcat">New category name</label><input id="pp-newcat" placeholder="e.g. Accessories"></div>
     <div class="pf-row"><div class="pf"><label for="pp-min">Minimum level</label><input id="pp-min" type="number" min="0" value="${p ? p.min_qty : 0}"></div>
       <div class="pf"><label for="pp-val">Unit value (AED)</label><input id="pp-val" type="number" min="0" step="0.01" value="${p ? p.unit_value : 0}"></div></div>
     ${p ? `<div class="pf"><label for="pp-active">Status</label><select id="pp-active"><option value="1" ${p.active ? 'selected' : ''}>Active</option><option value="0" ${p.active ? '' : 'selected'}>Inactive (hidden from new orders)</option></select></div>`
@@ -3034,7 +3099,9 @@ async function openProductForm(id) {
       <button class="pbtn primary" onclick="saveProduct(${p ? p.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${p ? 'Save changes' : 'Add product'}</button></div>`);
 }
 async function saveProduct(id, btn) {
-  const body = {sku: val('pp-sku'), name: val('pp-name'), unit: val('pp-unit'), category: val('pp-cat'), min_qty: val('pp-min'), unit_value: val('pp-val')};
+  const catSel = val('pp-cat');
+  if (catSel === '__new' && !val('pp-newcat').trim()) { toast('Enter the new category name.', 'error'); document.getElementById('pp-newcat').focus(); return; }
+  const body = {sku: val('pp-sku'), name: val('pp-name'), unit: val('pp-unit'), category: catSel === '__new' ? val('pp-newcat').trim() : catSel, min_qty: val('pp-min'), unit_value: val('pp-val')};
   if (!body.sku.trim() || !body.name.trim()) { toast('SKU and product name are required.', 'error'); return; }
   if (id) body.active = val('pp-active') === '1';
   else body.opening = [...document.querySelectorAll('.pp-open')].map(i => ({warehouse_id: i.dataset.wh, qty: i.value,
