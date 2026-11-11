@@ -725,7 +725,7 @@ tbody tr.selected td:first-child{
   .page-header{flex-direction:column;align-items:stretch;gap:10px}
 
   /* table: hide # column, tighten cells */
-  thead th:first-child,tbody td:first-child{display:none}
+  #page-shipment thead th:first-child,#page-shipment tbody td:first-child{display:none}
   table{min-width:0;width:100%}
   thead th,tbody td{padding:10px 10px;font-size:12px;white-space:nowrap}
   .badge{font-size:11px;padding:3px 7px}
@@ -739,15 +739,251 @@ tbody tr.selected td:first-child{
   .chart-wrap{height:200px}
   .main{padding:66px 10px 76px}
 }
+/* ── auth screen ─────────────────────────────────────────── */
+.auth{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;
+  padding:20px;background:linear-gradient(160deg,#0f172a 0%,#1e2a5a 100%)}
+.auth.open{display:flex}
+.auth-card{width:100%;max-width:400px;background:var(--card);border-radius:var(--radius);
+  box-shadow:0 20px 60px rgba(0,0,0,.35);padding:30px 28px}
+.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.auth-brand .logo{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--primary),#818cf8);color:#fff;font-size:17px}
+.auth-brand b{display:block;font-size:16px}
+.auth-brand small{font-size:12px;color:var(--muted)}
+.auth-card h2{font-size:19px;font-weight:700;margin-bottom:4px}
+.auth-card .auth-sub{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+.auth-card label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:12px 0 6px}
+.auth-card input{width:100%;height:44px;padding:0 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font:inherit;font-size:15px;color:var(--text);background:#fafbff;outline:none}
+.auth-card input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.12)}
+.auth-card input[readonly]{background:#f1f5f9;color:#64748b}
+.auth-btn{width:100%;height:46px;margin-top:20px;border:none;border-radius:var(--radius-sm);cursor:pointer;
+  background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;font:inherit;font-size:14px;font-weight:700}
+.auth-btn:disabled{opacity:.6;cursor:wait}
+.auth-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
+.auth-link{display:block;margin-top:14px;text-align:center;font-size:13px;color:var(--primary);background:none;border:none;cursor:pointer;width:100%;font:inherit}
+.auth-err{margin-top:12px;font-size:13px;color:#dc2626;min-height:18px}
+.auth-ok{margin-top:12px;font-size:13px;color:#15803d}
+
+/* ── sidebar user ────────────────────────────────────────── */
+.sidebar-footer .user-meta{flex:1;min-width:0}
+.sidebar-footer .user-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logout-btn{background:rgba(255,255,255,.07);border:none;color:rgba(255,255,255,.6);width:34px;height:34px;
+  border-radius:9px;cursor:pointer;display:grid;place-items:center;flex-shrink:0}
+.logout-btn:hover{background:rgba(239,68,68,.25);color:#fff}
+.topbar-logout{margin-left:auto;background:rgba(255,255,255,.08);border:none;color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer}
+
+/* ── shared module UI ────────────────────────────────────── */
+.mod-tools{display:flex;gap:10px;padding:12px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.mod-tools input,.mod-tools select{height:40px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--card);color:var(--text);font:inherit;font-size:13px;padding:0 12px}
+.mod-tools input{flex:1 1 220px;max-width:320px}
+.mod-tools select{flex:0 0 190px}
+.mod-tools input:focus,.mod-tools select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.hdr-actions{display:flex;gap:8px;flex-wrap:wrap}
+.hdr-actions .add-btn.alt{background:var(--card);color:var(--text);border:1.5px solid var(--border);box-shadow:none}
+.hdr-actions .add-btn.alt:hover{border-color:var(--primary);color:var(--primary)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+th.num{text-align:right}
+.clickable tbody tr{cursor:pointer}
+.empty-row td{text-align:center;color:var(--muted);padding:36px 12px !important}
+.badge-ok{background:#d1fae5;color:#065f46}
+.badge-low{background:#fef3c7;color:#92400e}
+.badge-out{background:#fee2e2;color:#991b1b}
+.badge-muted{background:#f1f5f9;color:#475569}
+.badge-pick_list{background:#e0e7ff;color:#3730a3}
+.badge-picked{background:#fef3c7;color:#92400e}
+.badge-packed{background:#cffafe;color:#155e75}
+.badge-shipped{background:#d1fae5;color:#065f46}
+.badge-cancelled{background:#f1f5f9;color:#64748b}
+.badge-urgent{background:#fee2e2;color:#991b1b}
+.ops-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.ops-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;
+  display:flex;align-items:center;gap:14px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.ops-card:hover{border-color:var(--primary-light)}
+.ops-card .oi{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.ops-card b{display:block;font-size:22px;line-height:1.1}
+.ops-card span{font-size:12px;color:var(--muted);font-weight:500}
+@media(max-width:1100px){.ops-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.ops-grid{gap:10px}.ops-card{padding:12px}.ops-card b{font-size:18px}
+  .mod-tools{padding:10px 14px}.mod-tools input,.mod-tools select{flex:1 1 100%;max-width:none;font-size:16px;height:44px}
+  .hdr-actions{width:100%}.hdr-actions .add-btn{flex:1;justify-content:center}}
+
+/* ── side panel content ─────────────────────────────────── */
+#panel .form-body{padding:20px 22px}
+.pf{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.pf label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.pf input,.pf select,.pf textarea{width:100%;min-width:0;height:42px;padding:0 12px;border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);font:inherit;font-size:14px;color:var(--text);background:#fafbff;outline:none}
+.pf textarea{height:72px;padding:10px 12px;resize:vertical}
+.pf input:focus,.pf select:focus,.pf textarea:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
+.pf-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.pf-hint{font-size:12px;color:var(--muted);margin-top:2px}
+.p-sec{font-size:12px;font-weight:700;color:var(--text);margin:18px 0 10px;display:flex;align-items:center;gap:7px}
+.p-sec i{color:var(--primary)}
+.kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 12px;font-size:13px;margin-bottom:6px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:500;word-break:break-word}
+.mini{width:100%;min-width:0 !important;border-collapse:collapse;font-size:13px;table-layout:auto}
+.mini thead th{background:none;position:static}
+#panel .form-body{overflow-x:hidden}
+.mini th:first-child,.mini td:first-child{display:table-cell !important}
+.mini td,.mini th{white-space:normal}
+.u-row > .badge{justify-self:start}
+.loc-head,.loc-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 36px;gap:8px;align-items:center}
+.loc-head{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.loc-row{margin-bottom:8px}
+.loc-row input{height:40px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%;text-transform:uppercase}
+.loc-row input::placeholder{text-transform:none}
+.loc-row .lr-name{grid-column:1 / -1;text-transform:none}
+#oli-body td:first-child,#oli-body td:nth-child(4),#oli-body td:nth-child(11),#oli-body td:nth-child(12),#oli-body td:nth-child(13){white-space:nowrap}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.del-btn{width:34px;height:34px;border:none;border-radius:9px;background:none;color:#94a3b8;cursor:pointer;display:grid;place-items:center}
+.del-btn:hover{background:#fee2e2;color:#dc2626}
+.del-btn:focus-visible{outline:none;box-shadow:0 0 0 3px #fecaca}
+.del-btn:disabled{opacity:.35;cursor:not-allowed;background:none;color:#94a3b8}
+.perm-list{display:flex;flex-direction:column;gap:6px}
+.perm{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;cursor:pointer}
+.perm input{width:18px;height:18px;margin-top:1px;accent-color:var(--primary);flex-shrink:0}
+.perm:has(input:checked){border-color:var(--primary);background:var(--primary-light)}
+.ol-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.ol-grid .ol-wide{grid-column:1 / -1}
+.ol-grid .ol-wide3{grid-column:span 3}
+#panel .ol-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#panel .ol-head,#panel .ol-line{grid-template-columns:minmax(0,1fr) 84px 74px 36px;gap:8px}
+#panel .ol-avail{white-space:nowrap;font-size:13px}
+#panel .ol-success{align-items:flex-start}
+.ol-grid input[readonly]{background:#f1f5f9;color:var(--text)}
+.ol-head,.ol-line{display:grid;grid-template-columns:minmax(0,1fr) 130px 130px 36px;gap:10px;align-items:center}
+.ol-head{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.ol-line{margin-bottom:8px}
+.ol-line select,.ol-line input{height:42px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%}
+.ol-line input{text-align:right}
+.ol-avail{font-weight:700;font-variant-numeric:tabular-nums;padding-right:4px}
+.ol-avail.good{color:#059669}.ol-avail.bad{color:#dc2626}
+.ol-warn{margin-top:12px;padding:10px 14px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px}
+.ol-success{margin-top:14px;padding:12px 14px;border-radius:10px;background:#d1fae5;color:#065f46;font-size:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ol-success .pbtn{margin-left:auto}
+@media(max-width:700px){.ol-grid{grid-template-columns:1fr 1fr}.ol-grid .ol-wide3{grid-column:1 / -1}
+  .ol-head,.ol-line{grid-template-columns:minmax(0,1fr) 70px 80px 36px}.ol-line select,.ol-line input{font-size:16px}}
+@media(max-width:430px){.bn-item{font-size:9.5px !important;letter-spacing:0 !important}}
+.vo-pill{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;
+  background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;letter-spacing:.2px}
+.form-card.readonly input:disabled,.form-card.readonly select:disabled{background:#f1f5f9;color:var(--text);opacity:1;cursor:default}
+.form-card.readonly button[onclick="clearForm()"]{display:none !important}
+.form-card.readonly .file-label,.form-card.readonly label:has(input[type=file]){pointer-events:none;opacity:.7}
+.dash-tabs{display:flex;gap:8px;margin:-4px 0 18px;flex-wrap:wrap;position:sticky;top:0;z-index:5;padding:8px 0;background:var(--bg)}
+.dash-tab{height:36px;padding:0 16px;border-radius:999px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.dash-tab:hover{border-color:var(--primary);color:var(--primary)}
+.dash-tab.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.dash-tab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
+.dash-sec{margin-top:32px;scroll-margin-top:60px}
+.dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.dash-sec-hdr h3{font-size:16px;font-weight:700;display:flex;align-items:center;gap:9px}
+.dash-sec-hdr h3 i{color:var(--primary)}
+.dash-sec-hdr select{height:38px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font:inherit;font-size:13px;padding:0 12px;color:var(--text)}
+.kpi-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.kpi:hover{border-color:var(--primary-light)}
+.kpi span{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi b{font-size:22px;font-variant-numeric:tabular-nums}
+.kpi-blue b{color:#4361ee}.kpi-amber b{color:#d97706}.kpi-red b{color:#dc2626}
+.chart-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px;pointer-events:none}
+.wh-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.wh-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.wh-card:hover,.wh-card:focus-visible{border-color:var(--primary-light);outline:none}
+.wh-card-top{display:flex;justify-content:space-between;gap:10px;margin-bottom:12px}
+.wh-card-top b{display:block;font-size:15px}
+.wh-card-top small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.wh-card-top i{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:#e0f2fe;color:#0284c7;flex-shrink:0}
+.wh-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.wh-stats span{display:block;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.wh-stats b{font-size:15px;font-variant-numeric:tabular-nums}
+.wh-pipe{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi b{font-size:18px}.wh-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.loc-row.lr{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fcfdff}
+.loc-row input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
+.bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
+tr.row-inactive td{opacity:.55}
+.mini th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left;padding:6px 6px;border-bottom:1px solid var(--border)}
+.mini td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+.mini input{width:72px;height:36px;padding:0 8px;border:1.5px solid var(--border);border-radius:8px;font:inherit;font-size:14px;text-align:right}
+.mini .sub{display:block;font-size:11px;color:var(--muted)}
+.line-row{display:grid;grid-template-columns:minmax(0,1fr) 84px 36px;gap:8px;margin-bottom:8px;align-items:center}
+.line-row select,.line-row input{height:40px;border:1.5px solid var(--border);border-radius:9px;font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%}
+.icon-btn{width:36px;height:36px;border:none;border-radius:9px;background:#f1f5f9;color:#64748b;cursor:pointer;display:grid;place-items:center}
+.icon-btn:hover{background:#fee2e2;color:#dc2626}
+.p-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.p-actions .pbtn{flex:1 1 calc(50% - 5px)}
+.pbtn{height:44px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--card);color:var(--text);
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 14px}
+.pbtn.primary{background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;border:none}
+.pbtn.success{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none}
+.pbtn.danger{color:#dc2626}
+.pbtn.danger:hover{background:#fee2e2;border-color:#fecaca}
+.pbtn:disabled{opacity:.55;cursor:not-allowed}
+.pbtn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
+.steps{display:flex;gap:4px;margin:2px 0 16px}
+.steps span{flex:1;height:6px;border-radius:3px;background:#e2e8f0}
+.steps span.on{background:var(--primary)}
+.steps span.x{background:#cbd5e1}
+.hist{list-style:none;margin:0;padding:0;font-size:13px}
+.hist li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.hist .q{font-weight:700;font-variant-numeric:tabular-nums}
+.hist .q.pos{color:#059669}.hist .q.neg{color:#dc2626}
+.hist small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.link-box{display:flex;gap:8px;margin-top:10px}
+.link-box input{flex:1;min-width:0;height:38px;border:1.5px solid var(--border);border-radius:9px;padding:0 10px;font-size:12px;background:#f8fafc;color:#475569}
+.u-row{display:grid;grid-template-columns:minmax(0,1fr) 130px auto;gap:10px;align-items:center;padding:11px 14px}
+.u-row + .u-row{border-top:1px solid var(--border)}
+.u-row .who b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u-row .who small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.u-row select{height:36px;border:1.5px solid var(--border);border-radius:8px;font:inherit;font-size:13px;padding:0 8px;background:var(--card)}
+.u-row .acts{display:flex;gap:6px}
+.u-row .acts button{height:36px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font:inherit;font-size:12px;font-weight:600;cursor:pointer;color:var(--text)}
+.u-row .acts button:hover{border-color:var(--primary);color:var(--primary)}
+.u-row.inactive{opacity:.55}
+.set-grid-3{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 140px auto;gap:10px;align-items:end}
+.set-grid-3 input,.set-grid-3 select{height:42px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:14px;padding:0 10px;background:#fafbff;min-width:0;width:100%}
+@media(max-width:700px){.set-grid-3{grid-template-columns:1fr}.u-row{grid-template-columns:1fr}.u-row .acts{flex-wrap:wrap}}
+.box-list{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-top:14px}
+#print-area{display:none}
+@media print{
+  body{display:block;background:#fff}
+  body > *:not(#print-area){display:none !important}
+  #print-area{display:block;padding:24px;font-family:Arial,sans-serif;color:#000}
+  #print-area h1{font-size:20px;margin:0 0 4px}
+  #print-area table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
+  #print-area th,#print-area td{border:1px solid #999;padding:6px 8px;text-align:left}
+  #print-area .meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:13px;margin-top:12px}
+}
 </style>
 </head>
 <body>
+<!-- ═══════════════  SIGN IN  ═══════════════ -->
+<div class="auth" id="auth" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+  <div class="auth-card">
+    <div class="auth-brand"><div class="logo"><i class="fa fa-truck-fast"></i></div><div><b>Logistic Pro</b><small>Shipping Management</small></div></div>
+    <h2 id="auth-title">Sign in</h2>
+    <p class="auth-sub" id="auth-sub">Use your work email and password.</p>
+    <form id="auth-form" onsubmit="event.preventDefault();authSubmit()" novalidate>
+      <div id="auth-name-wrap" style="display:none"><label for="auth-name">Your name</label><input id="auth-name" autocomplete="name"></div>
+      <div id="auth-email-wrap"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="username" required></div>
+      <div id="auth-pw-wrap"><label for="auth-pw">Password</label><input id="auth-pw" type="password" autocomplete="current-password" required></div>
+      <div id="auth-pw2-wrap" style="display:none"><label for="auth-pw2">Confirm password</label><input id="auth-pw2" type="password" autocomplete="new-password"></div>
+      <div class="auth-err" id="auth-err" role="alert"></div>
+      <button class="auth-btn" id="auth-btn" type="submit">Sign in</button>
+    </form>
+    <button class="auth-link" id="auth-alt" type="button" onclick="authAlt()">Forgot password?</button>
+  </div>
+</div>
 
 <!-- mobile sidebar overlay -->
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- form overlay (mobile bottom sheet backdrop) -->
-<div id="form-overlay" class="form-overlay" onclick="closeForm()"></div>
+<div id="form-overlay" class="form-overlay" onclick="closeAllPanels()"></div>
 
 <!-- mobile topbar -->
 <div class="topbar">
@@ -756,6 +992,7 @@ tbody tr.selected td:first-child{
     <div class="topbar-logo-icon"><i class="fa fa-truck-fast"></i></div>
     <span class="topbar-logo">Logistic Pro</span>
   </div>
+  <button class="topbar-logout" onclick="logout()" aria-label="Sign out" title="Sign out"><i class="fa fa-right-from-bracket"></i></button>
 </div>
 
 <!-- ═══════════════  SIDEBAR  ═══════════════ -->
@@ -775,25 +1012,42 @@ tbody tr.selected td:first-child{
       <div class="nav-icon"><i class="fa fa-chart-pie"></i></div>
       Dashboard
     </div>
+    <div class="nav-item" id="nav-orderlist" data-perm="orders.create" onclick="navigate('orderlist')">
+      <div class="nav-icon"><i class="fa fa-file-lines"></i></div>
+      Order List
+    </div>
+    <div class="nav-item" id="nav-orders" onclick="navigate('orders')">
+      <div class="nav-icon"><i class="fa fa-box-open"></i></div>
+      Order Packed
+    </div>
     <div class="nav-item" id="nav-shipment" onclick="navigate('shipment')">
       <div class="nav-icon"><i class="fa fa-box"></i></div>
       Shipment
       <span class="nav-badge" id="nav-badge" style="display:none">0</span>
     </div>
-    <div class="nav-item" id="nav-settings" onclick="navigate('settings')">
+    <div class="nav-item" id="nav-inventory" onclick="navigate('inventory')">
+      <div class="nav-icon"><i class="fa fa-boxes-stacked"></i></div>
+      Inventory
+    </div>
+    <div class="nav-item" id="nav-warehouses" onclick="navigate('warehouses')">
+      <div class="nav-icon"><i class="fa fa-warehouse"></i></div>
+      Warehouses
+    </div>
+    <div class="nav-item" id="nav-settings" data-perm="settings" onclick="navigate('settings')">
       <div class="nav-icon"><i class="fa fa-gear"></i></div>
       Settings
     </div>
   </nav>
 
   <div class="sidebar-footer">
-    <div class="avatar">L</div>
-    <div>
-      <div class="user-name">Logistic Pro</div>
-      <div class="user-role">Admin</div>
+    <div class="avatar" id="me-avatar">L</div>
+    <div class="user-meta">
+      <div class="user-name" id="me-name">Logistic Pro</div>
+      <div class="user-role" id="me-role"></div>
     </div>
+    <button class="logout-btn" onclick="logout()" aria-label="Sign out" title="Sign out"><i class="fa fa-right-from-bracket"></i></button>
   </div>
-  <div class="sidebar-version">v1.0 &nbsp;·&nbsp; Logistic Pro</div>
+  <div class="sidebar-version">v2.0 &nbsp;·&nbsp; Logistic Pro</div>
 </aside>
 
 <!-- ═══════════════  MAIN  ═══════════════ -->
@@ -806,9 +1060,17 @@ tbody tr.selected td:first-child{
         <div class="ph-icon"><i class="fa fa-chart-pie"></i></div>
         <div class="page-header-text">
           <h2>Dashboard</h2>
-          <p>Overview of all shipment activity</p>
+          <p>Shipments, inventory and warehouses at a glance</p>
         </div>
       </div>
+    </div>
+    <div class="dash-tabs" role="tablist" aria-label="Dashboard sections">
+      <button class="dash-tab on" data-target="dash-ship" onclick="scrollDash('dash-ship')"><i class="fa fa-truck-fast"></i> Shipments</button>
+      <button class="dash-tab" data-target="dash-inv" onclick="scrollDash('dash-inv')"><i class="fa fa-boxes-stacked"></i> Inventory</button>
+      <button class="dash-tab" data-target="dash-whs" onclick="scrollDash('dash-whs')"><i class="fa fa-warehouse"></i> Warehouses</button>
+    </div>
+    <div class="dash-sec" id="dash-ship" style="margin-top:0">
+      <div class="dash-sec-hdr"><h3><i class="fa fa-truck-fast"></i> Shipments</h3></div>
     </div>
 
     <div class="stats-grid">
@@ -854,6 +1116,13 @@ tbody tr.selected td:first-child{
       </div>
     </div>
 
+    <div class="ops-grid">
+      <div class="ops-card" onclick="goOrders('pick_list')"><div class="oi" style="background:#e0e7ff;color:#3730a3"><i class="fa fa-hand"></i></div><div><b id="op-pick">0</b><span>To pick</span></div></div>
+      <div class="ops-card" onclick="goOrders('picked')"><div class="oi" style="background:#fef3c7;color:#92400e"><i class="fa fa-box-open"></i></div><div><b id="op-pack">0</b><span>To pack</span></div></div>
+      <div class="ops-card" onclick="goOrders('packed')"><div class="oi" style="background:#cffafe;color:#155e75"><i class="fa fa-truck-ramp-box"></i></div><div><b id="op-ship">0</b><span>Ready to ship</span></div></div>
+      <div class="ops-card" onclick="goLowStock()"><div class="oi" style="background:#fee2e2;color:#991b1b"><i class="fa fa-triangle-exclamation"></i></div><div><b id="op-low">0</b><span>Low / out of stock</span></div></div>
+    </div>
+
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-card-header">
@@ -876,6 +1145,57 @@ tbody tr.selected td:first-child{
         <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
       </div>
     </div>
+
+    <!-- ── Inventory ── -->
+    <div class="dash-sec" id="dash-inv">
+      <div class="dash-sec-hdr">
+        <h3><i class="fa fa-boxes-stacked"></i> Inventory</h3>
+        <select id="dash-wh" aria-label="Warehouse for inventory and warehouse figures" onchange="loadStockDashboard()"><option value="">All warehouses</option></select>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi" onclick="navigate('inventory')"><span>Products</span><b id="k-products">0</b></div>
+        <div class="kpi" onclick="navigate('inventory')"><span>Units on hand</span><b id="k-units">0</b></div>
+        <div class="kpi" onclick="goOrders('open')"><span>Reserved</span><b id="k-reserved">0</b></div>
+        <div class="kpi" onclick="navigate('inventory')"><span>Available</span><b id="k-available">0</b></div>
+        <div class="kpi kpi-blue" onclick="navigate('inventory')"><span>Stock value (AED)</span><b id="k-value">0</b></div>
+        <div class="kpi kpi-amber" onclick="goLowStock()"><span>Low stock</span><b id="k-low">0</b></div>
+        <div class="kpi kpi-red" onclick="goStockStatus('out')"><span>Out of stock</span><b id="k-out">0</b></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-header"><div><h3><i class="fa fa-tags" style="color:var(--primary);margin-right:7px"></i>Stock value by category</h3><p>AED, current stock</p></div><span class="chart-badge"><i class="fa fa-chart-pie"></i>Donut</span></div>
+          <div class="chart-wrap"><canvas id="invCatChart" role="img" aria-label="Stock value by category"></canvas><div class="chart-empty" id="invCatEmpty">No stock yet</div></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header"><div><h3><i class="fa fa-ranking-star" style="color:var(--primary);margin-right:7px"></i>Top products by quantity</h3><p>Units on hand · available shown in the tooltip</p></div><span class="chart-badge"><i class="fa fa-chart-bar"></i>Bar</span></div>
+          <div class="chart-wrap"><canvas id="invTopChart" role="img" aria-label="Top products by quantity on hand"></canvas><div class="chart-empty" id="invTopEmpty">No stock yet</div></div>
+        </div>
+      </div>
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-card-header"><div><h3><i class="fa fa-right-left" style="color:var(--primary);margin-right:7px"></i>Stock in vs out</h3><p>Units per month, last 6 months (received, returned and adjusted in · shipped and written off out)</p></div><span class="chart-badge"><i class="fa fa-chart-column"></i>Bar</span></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="invFlowChart" role="img" aria-label="Stock in and out per month"></canvas></div>
+      </div>
+      <div class="table-card" style="margin-top:16px">
+        <div class="table-hdr">
+          <div class="section-title"><div class="s-icon" style="background:#fee2e2;color:#991b1b"><i class="fa fa-triangle-exclamation"></i></div><h3>Low &amp; out of stock</h3></div>
+          <div class="table-hdr-right"><span class="rec-count" id="k-lowcount">0 items</span></div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="clickable"><thead><tr><th>SKU</th><th>Product</th><th>Category</th><th class="num">On hand</th><th class="num">Minimum</th><th class="num">Short by</th><th>Where</th><th>Status</th></tr></thead>
+            <tbody id="dash-low"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Warehouses ── -->
+    <div class="dash-sec" id="dash-whs">
+      <div class="dash-sec-hdr"><h3><i class="fa fa-warehouse"></i> Warehouses</h3></div>
+      <div class="wh-cards" id="dash-whcards"></div>
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-card-header"><div><h3><i class="fa fa-chart-column" style="color:var(--primary);margin-right:7px"></i>Stock by warehouse</h3><p>Units on hand and stock value (AED)</p></div><span class="chart-badge"><i class="fa fa-chart-column"></i>Bar</span></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="whChart" role="img" aria-label="Units and stock value per warehouse"></canvas></div>
+      </div>
+    </div>
   </div>
 
   <!-- ───────────  SHIPMENT  ─────────── -->
@@ -884,11 +1204,11 @@ tbody tr.selected td:first-child{
       <div class="page-header-left">
         <div class="ph-icon" style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 14px rgba(16,185,129,.35)"><i class="fa fa-box"></i></div>
         <div class="page-header-text">
-          <h2>Shipment</h2>
+          <h2>Shipment <span class="vo-pill" data-viewonly="shipments.edit"><i class="fa fa-eye"></i> View only</span></h2>
           <p>Manage all your shipment records</p>
         </div>
       </div>
-      <button class="add-btn" onclick="openNewForm()">
+      <button class="add-btn" data-perm="shipments.edit" onclick="openNewForm()">
         <i class="fa fa-circle-plus"></i> Add Shipment
       </button>
     </div>
@@ -963,13 +1283,13 @@ tbody tr.selected td:first-child{
         </div>
 
         <div class="btn-row">
-          <button class="btn btn-save"   id="btn-save"   onclick="saveRecord()">
+          <button class="btn btn-save"   id="btn-save"   data-perm="shipments.edit" onclick="saveRecord()">
             <i class="fa fa-floppy-disk"></i> Save
           </button>
-          <button class="btn btn-update" id="btn-update" onclick="updateRecord()" disabled>
+          <button class="btn btn-update" id="btn-update" data-perm="shipments.edit" onclick="updateRecord()" disabled>
             <i class="fa fa-pen-to-square"></i> Update
           </button>
-          <button class="btn btn-delete" id="btn-delete" onclick="deleteRecord()" disabled>
+          <button class="btn btn-delete" id="btn-delete" data-perm="shipments.delete" onclick="deleteRecord()" disabled>
             <i class="fa fa-trash"></i> Delete
           </button>
           <button class="btn btn-clear" onclick="clearForm()">
@@ -1026,6 +1346,7 @@ tbody tr.selected td:first-child{
               <th><span class="th-icon"><i class="fa fa-barcode"></i> AWB No.</span></th>
               <th><span class="th-icon"><i class="fa fa-coins"></i> Cost</span></th>
               <th><span class="th-icon"><i class="fa fa-circle-dot"></i> Status</span></th>
+              <th><span class="th-icon"><i class="fa fa-file-export"></i> Export</span></th>
               <th><span class="th-icon"><i class="fa fa-satellite-dish"></i> Track</span></th>
             </tr>
           </thead>
@@ -1036,13 +1357,148 @@ tbody tr.selected td:first-child{
   </div>
 
   <!-- ───────────  SETTINGS  ─────────── -->
+  <!-- ───────────  ORDER LIST  ─────────── -->
+  <div id="page-orderlist" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#ec4899,#db2777);box-shadow:0 4px 14px rgba(236,72,153,.35)"><i class="fa fa-file-lines"></i></div>
+        <div class="page-header-text"><h2>Order List</h2><p>Request hardware for a user and their project</p></div>
+      </div>
+      <div class="hdr-actions"><button class="add-btn" onclick="openOrderListForm()"><i class="fa fa-file-circle-plus"></i> Create Order List</button></div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-list"></i></div><h3>Order lists</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="oll-count"></span></div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Order</th><th>Date</th><th>Requested by</th><th>Project</th><th>Warehouse</th><th class="num">Qty</th><th>Status</th><th>Export</th><th><span class="sr-only">Delete</span></th></tr></thead>
+          <tbody id="oll-body"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────  WAREHOUSES  ─────────── -->
+  <div id="page-warehouses" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 4px 14px rgba(14,165,233,.35)"><i class="fa fa-warehouse"></i></div>
+        <div class="page-header-text"><h2>Warehouses <span class="vo-pill" data-viewonly="settings|stock.adjust"><i class="fa fa-eye"></i> View only</span></h2><p>Locations and the stock held in each</p></div>
+      </div>
+      <div class="hdr-actions">
+        <button class="add-btn alt" data-perm="stock.adjust" onclick="openLocationForm()"><i class="fa fa-table-cells"></i> Add Location</button>
+        <button class="add-btn" data-perm="settings" onclick="openWarehouseForm()"><i class="fa fa-circle-plus"></i> Add Warehouse</button>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-warehouse"></i></div><h3>Warehouses</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="whs-count"></span></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Warehouse</th><th>Address / city</th><th>Responsible</th><th class="num">Locations</th><th class="num">Products</th><th class="num">Units on hand</th><th class="num">Stock value (AED)</th><th>Status</th></tr></thead>
+          <tbody id="whs-body"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="table-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-table-cells"></i></div><h3>Storage Locations</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="loc-count"></span></div>
+      </div>
+      <div class="mod-tools">
+        <input type="search" id="loc-search" placeholder="Search code, name, zone…" aria-label="Search locations" oninput="renderLocTable()">
+        <select id="loc-wh" aria-label="Warehouse" onchange="renderLocTable()"><option value="">All warehouses</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Code</th><th>Location name</th><th>Warehouse</th><th>Zone</th><th>Rack</th><th>Shelf</th><th>Bin</th><th class="num">Units</th><th>Status</th></tr></thead>
+          <tbody id="loc-body"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────  ORDERS  ─────────── -->
+  <div id="page-orders" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 14px rgba(245,158,11,.35)"><i class="fa fa-box-open"></i></div>
+        <div class="page-header-text"><h2>Order Packed <span class="vo-pill" data-viewonly="orders.process|orders.ship"><i class="fa fa-eye"></i> View only</span></h2><p>Pick, pack and dispatch order lists</p></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-cubes"></i></div><h3>Order Items</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="oli-count">0 lines</span></div>
+      </div>
+      <div class="mod-tools">
+        <input type="search" id="ord-search" placeholder="Search order, product, destination" aria-label="Search order items" oninput="renderOrders()">
+        <select id="ord-filter" aria-label="Filter by order status" onchange="renderOrders()">
+          <option value="" selected>All orders</option>
+          <option value="open">Open orders</option>
+          <option value="pick_list">To pick</option>
+          <option value="picked">To pack</option>
+          <option value="packed">Ready to ship</option>
+          <option value="shipped">Shipped</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Order</th><th>Warehouse</th><th>Destination</th><th>SKU</th><th>Product</th><th class="num">Requested</th><th class="num">Picked</th><th>Pick From</th><th class="num">No. of Boxes</th><th class="num">Weight (kg)</th><th>Dimensions</th><th>Status</th><th>Requested by</th><th><span class="sr-only">Delete</span></th></tr></thead>
+          <tbody id="oli-body"><tr class="empty-row"><td colspan="14">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────  INVENTORY  ─────────── -->
+  <div id="page-inventory" class="page">
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="ph-icon" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);box-shadow:0 4px 14px rgba(139,92,246,.35)"><i class="fa fa-boxes-stacked"></i></div>
+        <div class="page-header-text"><h2>Inventory <span class="vo-pill" data-viewonly="products.manage|stock.adjust"><i class="fa fa-eye"></i> View only</span></h2><p>Products and stock by warehouse</p></div>
+      </div>
+      <div class="hdr-actions">
+        <button class="add-btn alt" data-perm="products.manage" onclick="openCategories()"><i class="fa fa-tags"></i> Categories</button>
+        <button class="add-btn alt" data-perm="stock.adjust" onclick="openTransfer()"><i class="fa fa-right-left"></i> Transfer</button>
+        <button class="add-btn alt" data-perm="stock.adjust" onclick="openAdjust()"><i class="fa fa-sliders"></i> Adjust stock</button>
+        <button class="add-btn" data-perm="products.manage" onclick="openProductForm()"><i class="fa fa-circle-plus"></i> Add product</button>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-cubes"></i></div><h3>Stock</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="inv-count">0 products</span></div>
+      </div>
+      <div class="mod-tools">
+        <input type="search" id="inv-search" placeholder="Search SKU or product" aria-label="Search products" oninput="renderProducts()">
+        <select id="inv-wh" aria-label="Warehouse" onchange="loadProducts()"><option value="">All warehouses</option></select>
+        <select id="inv-cat" aria-label="Category" onchange="renderProducts()"><option value="">All categories</option></select>
+        <select id="inv-filter" aria-label="Stock status" onchange="renderProducts()">
+          <option value="">All stock</option><option value="low">Low stock</option><option value="out">Out of stock</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th><th class="num">Min</th><th>Status</th></tr></thead>
+          <tbody id="inv-body"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="page-settings" class="page">
     <div class="page-header">
       <div class="page-header-left">
         <div class="ph-icon" style="background:linear-gradient(135deg,#64748b,#475569);box-shadow:0 4px 14px rgba(71,85,105,.3)"><i class="fa fa-gear"></i></div>
         <div class="page-header-text">
           <h2>Settings</h2>
-          <p>Manage email notifications</p>
+          <p>Users, roles, projects and notifications</p>
         </div>
       </div>
     </div>
@@ -1071,9 +1527,65 @@ tbody tr.selected td:first-child{
         </div>
       </div>
     </div>
+
+    <div class="table-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-users"></i></div><h3>Users and roles</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="usr-count"></span>
+          <button class="add-btn" style="height:38px;padding:0 14px;font-size:13px" onclick="openUserForm()"><i class="fa fa-user-plus"></i> Add User</button></div>
+      </div>
+      <div class="set-body" style="padding-bottom:0">
+        <p class="set-help">Admin: everything · Requester: creates pick lists · Warehouse: stock, picking, packing, returns · Logistics: shipments. New users get a link to set their own password.</p>
+        <div id="usr-link"></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Name</th><th>Email</th><th>Contact number</th><th>Role</th><th>Warehouse</th><th>Project</th><th>Status</th></tr></thead>
+          <tbody id="usr-body"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-user-shield"></i></div><h3>Roles</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="rol-count"></span>
+          <button class="add-btn" style="height:38px;padding:0 14px;font-size:13px" onclick="openRoleForm()"><i class="fa fa-circle-plus"></i> Add Role</button></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Role</th><th>What they can do</th><th class="num">Users</th><th>Status</th></tr></thead>
+          <tbody id="rol-body"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-card" style="margin-top:20px">
+      <div class="table-hdr">
+        <div class="section-title"><div class="s-icon"><i class="fa fa-diagram-project"></i></div><h3>Projects</h3></div>
+        <div class="table-hdr-right"><span class="rec-count" id="prj-count"></span>
+          <button class="add-btn" style="height:38px;padding:0 14px;font-size:13px" onclick="openProjectForm()"><i class="fa fa-circle-plus"></i> Add Project</button></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="clickable">
+          <thead><tr><th>Project</th><th>Warehouse</th><th class="num">Users</th><th>Status</th></tr></thead>
+          <tbody id="prj-body"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- generic side panel (orders, products, stock) -->
+  <div class="form-card" id="panel" role="dialog" aria-labelledby="panel-title">
+    <div class="form-card-header">
+      <div><h3 id="panel-title">Details</h3><p id="panel-sub"></p></div>
+      <button class="form-close-btn" onclick="closePanel()" aria-label="Close"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="form-body" id="panel-body"></div>
   </div>
 
 </main>
+<div id="print-area"></div>
 
 <!-- toast -->
 <div class="toast" id="toast">
@@ -1087,11 +1599,27 @@ tbody tr.selected td:first-child{
     <i class="fa fa-chart-pie"></i>
     <span>Dashboard</span>
   </div>
+  <div class="bn-item" id="bn-orderlist" data-perm="orders.create" onclick="navigate('orderlist')">
+    <i class="fa fa-file-lines"></i>
+    <span>Order List</span>
+  </div>
+  <div class="bn-item" id="bn-orders" onclick="navigate('orders')">
+    <i class="fa fa-box-open"></i>
+    <span>Packed</span>
+  </div>
   <div class="bn-item" id="bn-shipment" onclick="navigate('shipment')">
     <i class="fa fa-box"></i>
     <span>Shipment</span>
   </div>
-  <div class="bn-item" id="bn-settings" onclick="navigate('settings')">
+  <div class="bn-item" id="bn-inventory" onclick="navigate('inventory')">
+    <i class="fa fa-boxes-stacked"></i>
+    <span>Inventory</span>
+  </div>
+  <div class="bn-item" id="bn-warehouses" onclick="navigate('warehouses')">
+    <i class="fa fa-warehouse"></i>
+    <span>Stores</span>
+  </div>
+  <div class="bn-item" id="bn-settings" data-perm="settings" onclick="navigate('settings')">
     <i class="fa fa-gear"></i>
     <span>Settings</span>
   </div>
@@ -1129,7 +1657,11 @@ function navigate(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.getElementById('nav-'  + page).classList.add('active');
   if (page === 'dashboard') updateDashboard();
-  if (page === 'settings') loadRecipients();
+  if (page === 'settings' && can('settings')) { loadRecipients(); loadSettingsLists(); }
+  if (page === 'warehouses') loadWarehousePage();
+  if (page === 'orderlist') loadOrderListPage();
+  if (page === 'orders') loadOrders();
+  if (page === 'inventory') loadProducts();
   closeSidebar();
   document.querySelectorAll('.bn-item').forEach(n => n.classList.remove('active'));
   const bn = document.getElementById('bn-' + page);
@@ -1199,6 +1731,8 @@ function saveLocal() {
 
 // ── form helpers ──────────────────────────────────────────────────
 function openNewForm() {
+  if (document.getElementById('panel').classList.contains('open')) closePanel();
+  setShipmentFormReadOnly(false);
   selectedId = null;
   clearForm();
   document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
@@ -1213,7 +1747,8 @@ function openNewForm() {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (document.getElementById('form-card').classList.contains('open')) closeForm();
+  if (document.getElementById('auth').classList.contains('open')) return;
+  closeAllPanels();
 });
 
 function closeForm() {
@@ -1329,6 +1864,7 @@ async function updateRecord() {
       if (idx !== -1) allRows[idx] = data.record;
       saveLocal(); selectedId = null; closeForm(); renderTable(); updateDashboard();
       toast('Shipment updated!', 'success');
+      afterShipmentUpdate(data.record);
     } else {
       toast(data.error || 'Update failed.', 'error');
     }
@@ -1504,7 +2040,7 @@ function renderTable() {
   document.getElementById('rec-count').textContent = rows.length + ' record' + (rows.length !== 1 ? 's' : '');
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
       <div class="empty-icon"><i class="fa fa-box-open"></i></div>
       <p>${allRows.length ? 'No records match this filter.' : 'No shipments yet'}</p>
       <small>${allRows.length ? 'Try clearing the filter to see all records.' : 'Click Add Shipment to create your first record.'}</small>
@@ -1524,6 +2060,7 @@ function renderTable() {
       <td><div class="cell-awb"><i class="fa fa-barcode"></i><span style="font-weight:600;color:var(--text)">${r.awb_no || '—'}</span></div></td>
       <td><div class="cell-cost">${costNum ? '<i class="fa fa-coins"></i><span style="font-weight:600">AED '+costNum+'</span>' : '—'}</div></td>
       <td><span class="badge badge-${sk}"><i class="fa ${statusIcon}"></i>${r.status || '—'}</span></td>
+      <td><button class="tbl-reset" style="height:34px" onclick="exportShipmentPDF(event, ${r.id})" aria-label="Export shipment ${r.awb_no || ''} as PDF" title="Export PDF"><i class="fa fa-file-pdf"></i> PDF</button></td>
       <td>
         <button class="track-btn" onclick="trackShipment(event,'${r.awb_no||''}')" title="Track shipment">
           <i class="fa fa-location-dot"></i>
@@ -1534,12 +2071,15 @@ function renderTable() {
 }
 
 function selectRow(id) {
+  if (document.getElementById('panel').classList.contains('open')) closePanel();
   selectedId = id;
   const r = allRows.find(x => x.id === id);
   if (!r) return;
 
-  document.getElementById('form-title').textContent = 'Edit Shipment';
-  document.getElementById('form-subtitle').textContent = 'AWB: ' + (r.awb_no || '—');
+  const ro = !can('shipments.edit');
+  setShipmentFormReadOnly(ro);
+  document.getElementById('form-title').textContent = ro ? 'Shipment details' : 'Edit Shipment';
+  document.getElementById('form-subtitle').textContent = 'AWB: ' + (r.awb_no || '—') + (ro ? ' · view only' : '');
   document.getElementById('f-date').value   = r.date   || '';
   document.getElementById('f-awb').value    = r.awb_no || '';
   document.getElementById('f-cost').value   = r.cost   != null ? r.cost : '';
@@ -1612,6 +2152,8 @@ async function updateDashboard() {
   animateCount('st-returned',  d.returned);
   renderStatusChart(d.transit, d.delivered, d.returned);
   renderMonthlyChart(d.monthly || []);
+  renderOps(d.modules);
+  loadStockDashboard();
 }
 
 function renderStatusChart(transit, delivered, returned) {
@@ -1707,8 +2249,1289 @@ function toast(msg, type = 'success') {
   _toastTimer = setTimeout(() => el.classList.remove('show'), 3400);
 }
 
+// ══════════════  USERS · WAREHOUSES · INVENTORY · ORDERS  ══════════════
+let ME = null;
+let WH = [];
+let PRODUCTS = [];
+let ORDERS = [];
+let ROLE_LABEL = {admin:'Admin', requester:'Requester', warehouse:'Warehouse', logistics:'Logistics'};
+const can = p => !!(ME && ME.perms.includes(p));
+const H = escHtml;
+const fmtN = v => Number(v || 0).toLocaleString('en-US');
+const fmtDate = v => v ? String(v).slice(0, 10) : '—';
+
+// any API call that comes back 401 sends the user to the sign-in screen
+const _rawFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const res = await _rawFetch(...args);
+  const url = String(args[0] && args[0].url || args[0]);
+  if (res.status === 401 && url.startsWith('/api/') && !url.startsWith('/api/auth/') && ME) {
+    ME = null; showAuth('login', '', 'Your session ended. Please sign in again.');
+  }
+  return res;
+};
+async function api(url, opts = {}) {
+  const o = Object.assign({}, opts);
+  if (o.json !== undefined) { o.method = o.method || 'POST'; o.headers = {'Content-Type': 'application/json'}; o.body = JSON.stringify(o.json); delete o.json; }
+  const res = await fetch(url, o);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) throw new Error(data.error || 'Something went wrong. Please try again.');
+  return data;
+}
+
+// ── sign in ──────────────────────────────────────────────────────
+let authMode = 'login', authToken = '';
+function showAuth(mode, email = '', msg = '') {
+  authMode = mode;
+  const $ = id => document.getElementById(id);
+  const cfg = {
+    login:  ['Sign in', 'Use your work email and password.', 'Sign in', 'Forgot password?'],
+    forgot: ['Reset password', 'Enter your email and we’ll send you a link to choose a new password.', 'Send reset link', 'Back to sign in'],
+    setup:  ['Create the admin account', 'First-time setup. This account will manage users, warehouses and settings.', 'Create account', ''],
+    set:    ['Set your password', 'Choose a password with at least 8 characters.', 'Save password and sign in', 'Back to sign in'],
+  }[mode];
+  $('auth-title').textContent = cfg[0];
+  $('auth-sub').textContent = cfg[1];
+  $('auth-btn').textContent = cfg[2];
+  $('auth-alt').textContent = cfg[3];
+  $('auth-alt').style.display = cfg[3] ? '' : 'none';
+  $('auth-name-wrap').style.display = mode === 'setup' ? '' : 'none';
+  $('auth-pw-wrap').style.display = mode === 'forgot' ? 'none' : '';
+  $('auth-pw2-wrap').style.display = (mode === 'setup' || mode === 'set') ? '' : 'none';
+  $('auth-pw').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  $('auth-email').readOnly = mode === 'set' || mode === 'setup';
+  if (email !== undefined) $('auth-email').value = email;
+  $('auth-pw').value = ''; $('auth-pw2').value = '';
+  $('auth-err').className = 'auth-err';
+  $('auth-err').textContent = msg;
+  $('auth').classList.add('open');
+  setTimeout(() => ($('auth-email').value && mode !== 'forgot' ? $('auth-pw') : $('auth-email')).focus(), 50);
+}
+function authAlt() {
+  if (authMode === 'login') showAuth('forgot', document.getElementById('auth-email').value);
+  else { history.replaceState(null, '', location.pathname); showAuth('login', document.getElementById('auth-email').value); }
+}
+async function authSubmit() {
+  const $ = id => document.getElementById(id);
+  const email = $('auth-email').value.trim(), pw = $('auth-pw').value, pw2 = $('auth-pw2').value;
+  const err = $('auth-err'); err.className = 'auth-err'; err.textContent = '';
+  if (!email) { err.textContent = 'Enter your email.'; return; }
+  if (authMode !== 'forgot' && !pw) { err.textContent = 'Enter a password.'; return; }
+  if ((authMode === 'setup' || authMode === 'set') && pw !== pw2) { err.textContent = 'The passwords don’t match.'; return; }
+  const btn = $('auth-btn'); btn.disabled = true;
+  try {
+    if (authMode === 'forgot') {
+      const d = await api('/api/auth/forgot', {json: {email}});
+      err.className = 'auth-ok';
+      err.textContent = d.emailEnabled ? 'If that email has an account, a reset link is on its way.' : 'Email isn’t set up here. Ask an admin to send you a reset link from Settings → Users.';
+      return;
+    }
+    const url = {login: '/api/auth/login', setup: '/api/auth/setup', set: '/api/auth/set-password'}[authMode];
+    const body = authMode === 'set' ? {token: authToken, password: pw} : {email, password: pw, name: $('auth-name').value.trim()};
+    const d = await api(url, {json: body});
+    history.replaceState(null, '', location.pathname);
+    startApp(d.user);
+  } catch (e) { err.className = 'auth-err'; err.textContent = e.message; }
+  finally { btn.disabled = false; }
+}
+async function boot() {
+  const qs = new URLSearchParams(location.search);
+  const tok = qs.get('invite') || qs.get('reset');
+  if (tok) {
+    try {
+      const r = await _rawFetch('/api/auth/token-info?token=' + encodeURIComponent(tok));
+      const d = await r.json();
+      if (d.valid) { authToken = tok; showAuth('set', d.email); return; }
+    } catch {}
+    history.replaceState(null, '', location.pathname);
+    showAuth('login', '', 'That link has expired or was already used. Ask an admin for a new one.');
+    return;
+  }
+  try {
+    const r = await _rawFetch('/api/auth/me', {cache: 'no-store'});
+    const d = await r.json();
+    if (d.user) return startApp(d.user);
+    if (d.setup) return showAuth('setup', d.setup_email || '');
+  } catch {}
+  showAuth('login');
+}
+function startApp(user) {
+  ME = user;
+  document.getElementById('auth').classList.remove('open');
+  document.getElementById('me-name').textContent = user.name;
+  document.getElementById('me-role').textContent = user.role_name || ROLE_LABEL[user.role] || user.role;
+  document.getElementById('me-avatar').textContent = (user.name || user.email).charAt(0).toUpperCase();
+  applyPerms();
+  loadWarehouses();
+  loadData();
+  const active = document.querySelector('.page.active');
+  if (active && active.id === 'page-settings' && !can('settings')) navigate('dashboard');
+  else if (active) navigate(active.id.replace('page-', ''));
+}
+function applyPerms() {
+  document.querySelectorAll('[data-perm]').forEach(el => { el.style.display = can(el.dataset.perm) ? '' : 'none'; });
+  document.querySelectorAll('[data-viewonly]').forEach(el => {
+    el.style.display = el.dataset.viewonly.split('|').some(p => can(p)) ? 'none' : '';
+  });
+}
+function setShipmentFormReadOnly(ro) {
+  ['f-date', 'f-awb', 'f-cost', 'f-status', 'f-awb-file', 'f-inv-file'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = ro; });
+  document.getElementById('form-card').classList.toggle('readonly', ro);
+}
+async function logout() {
+  try { await _rawFetch('/api/auth/logout', {method: 'POST'}); } catch {}
+  try { localStorage.removeItem('lp_v1'); } catch {}
+  location.href = location.pathname;
+}
+
+// ── shared panel ─────────────────────────────────────────────────
+function openPanel(title, sub, html) {
+  document.getElementById('panel-title').textContent = title;
+  document.getElementById('panel-sub').textContent = sub || '';
+  document.getElementById('panel-body').innerHTML = html;
+  if (document.getElementById('form-card').classList.contains('open')) closeForm();
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('form-overlay').classList.add('open');
+  const first = document.querySelector('#panel-body input:not([type=hidden]), #panel-body select');
+  if (first && window.innerWidth > 900) setTimeout(() => first.focus(), 60);
+}
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  if (!document.getElementById('form-card').classList.contains('open'))
+    document.getElementById('form-overlay').classList.remove('open');
+}
+function closeAllPanels() {
+  if (document.getElementById('panel').classList.contains('open')) closePanel();
+  if (document.getElementById('form-card').classList.contains('open')) closeForm();
+}
+const val = id => (document.getElementById(id) || {}).value;
+async function busy(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { await fn(); } catch (e) { toast(e.message, 'error'); } finally { if (btn) btn.disabled = false; }
+}
+
+// ── warehouses ───────────────────────────────────────────────────
+async function loadWarehouses() {
+  try { WH = await (await fetch('/api/warehouses', {cache: 'no-store'})).json(); } catch { WH = []; }
+  if (!Array.isArray(WH)) WH = [];
+  const sel = document.getElementById('inv-wh'), cur = sel.value;
+  sel.innerHTML = '<option value="">All warehouses</option>' + WH.filter(w => w.active).map(w => `<option value="${w.id}">${H(w.name)}</option>`).join('');
+  sel.value = cur;
+  if (document.getElementById('page-warehouses').classList.contains('active')) renderWarehousesAdmin();
+}
+const whOptions = (sel, placeholder = 'Choose warehouse') =>
+  `<option value="">${placeholder}</option>` + WH.filter(w => w.active).map(w => `<option value="${w.id}" ${String(sel) === String(w.id) ? 'selected' : ''}>${H(w.name)}</option>`).join('');
+let ALLLOCS = [];
+async function loadWarehousePage() {
+  await loadWarehouses();
+  try { PRODUCTS = await api('/api/products'); } catch {}
+  await loadAllLocs();
+  renderWarehousesAdmin();
+}
+async function loadAllLocs() {
+  const lists = await Promise.all(WH.map(w => api('/api/warehouses/' + w.id + '/locations').then(d => {
+    LOCS[w.id] = d.locations; return d.locations.map(l => Object.assign({warehouse: w.name}, l));
+  }).catch(() => [])));
+  ALLLOCS = lists.flat();
+  const sel = document.getElementById('loc-wh'), cur = sel.value;
+  sel.innerHTML = '<option value="">All warehouses</option>' + WH.map(w => `<option value="${w.id}">${H(w.name)}</option>`).join('');
+  sel.value = cur;
+  renderLocTable();
+}
+function whStock(id) {
+  let products = 0, units = 0, value = 0;
+  PRODUCTS.forEach(p => (p.by_warehouse || []).forEach(b => {
+    if (b.warehouse_id === id && b.on_hand) { products++; units += b.on_hand; value += b.on_hand * (p.unit_value || 0); }
+  }));
+  return {products, units, value};
+}
+function renderWarehousesAdmin() {
+  document.getElementById('whs-count').textContent = WH.filter(w => w.active).length + ' active';
+  document.getElementById('whs-body').innerHTML = WH.length ? WH.map(w => {
+    const st = whStock(w.id);
+    const nloc = (LOCS[w.id] || []).filter(l => l.active).length;
+    return `<tr onclick="openWarehouse(${w.id})" class="${w.active ? '' : 'row-inactive'}"><td><b>${H(w.name)}</b></td><td>${H(w.address || '—')}</td><td>${H(w.manager || '—')}</td>
+      <td class="num">${fmtN(nloc)}</td><td class="num">${fmtN(st.products)}</td><td class="num">${fmtN(st.units)}</td><td class="num">${fmtN(Math.round(st.value))}</td>
+      <td><span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span></td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="8">${can('settings') ? 'No warehouses yet. Click “Add Warehouse” to create your first one.' : 'No warehouses yet.'}</td></tr>`;
+}
+function renderLocTable() {
+  const q = (val('loc-search') || '').toLowerCase(), wid = val('loc-wh');
+  const rows = ALLLOCS.filter(l => !wid || String(l.warehouse_id) === wid)
+    .filter(l => !q || [l.code, l.zone, l.rack, l.shelf, l.bin, l.description, l.warehouse].join(' ').toLowerCase().includes(q));
+  document.getElementById('loc-count').textContent = rows.length + ' location' + (rows.length !== 1 ? 's' : '');
+  document.getElementById('loc-body').innerHTML = rows.length ? rows.map(l => `
+    <tr onclick="openWarehouse(${l.warehouse_id})" class="${l.active ? '' : 'row-inactive'}"><td><span class="bin-chip">${H(l.code)}</span></td><td>${H(l.description || '—')}</td><td>${H(l.warehouse)}</td>
+      <td>${H(l.zone || '—')}</td><td>${H(l.rack || '—')}</td><td>${H(l.shelf || '—')}</td><td>${H(l.bin || '—')}</td>
+      <td class="num">${fmtN(l.units)}</td><td><span class="badge ${l.active ? 'badge-ok' : 'badge-muted'}">${l.active ? 'Active' : 'Inactive'}</span></td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="9">${ALLLOCS.length ? 'No locations match.' : (can('stock.adjust') ? 'No storage locations yet. Click “Add Location” or add them when creating a warehouse.' : 'No storage locations yet.')}</td></tr>`;
+}
+
+// shared “locations” block used by the Add Warehouse and Add Location forms
+function locRowsBlock() {
+  return `
+    <div class="loc-head" aria-hidden="true"><span>Zone</span><span>Rack</span><span>Shelf</span><span>Bin</span><span></span></div>
+    <div id="lr-list"></div>
+    <button type="button" class="pbtn" style="width:100%" onclick="addLocRow()"><i class="fa fa-plus"></i> Add location</button>
+    <p class="pf-hint" style="margin-top:8px">Fill in only the levels you use, e.g. Zone A · Rack 01 · Shelf 3 · Bin B → code <b>A-01-3-B</b>, plus a name such as “Devices shelf”.</p>
+    <div class="p-sec"><i class="fa fa-layer-group"></i> Or create a range</div>
+    <div class="loc-row"><input id="rg-z" placeholder="Zone" aria-label="Range zone"><input id="rg-r" placeholder="Rack" aria-label="Range rack">
+      <input id="rg-s" placeholder="1-5" aria-label="Range shelves"><input id="rg-b" placeholder="A-D" aria-label="Range bins"><span></span>
+      <input id="rg-n" class="lr-name" placeholder="Name for all (optional), e.g. Accessories" aria-label="Range location name"></div>
+    <p class="pf-hint">Shelves and bins accept ranges (1-5, A-D) or lists (A,B,C). Zone A, Rack 02, Shelves 1-5, Bins A-D creates 20 locations.</p>`;
+}
+function addLocRow(z = '', r = '', s = '', b = '') {
+  const div = document.createElement('div');
+  div.className = 'loc-row lr';
+  div.innerHTML = `<input class="lr-z" placeholder="A" aria-label="Zone" value="${H(z)}"><input class="lr-r" placeholder="01" aria-label="Rack" value="${H(r)}">
+    <input class="lr-s" placeholder="3" aria-label="Shelf" value="${H(s)}"><input class="lr-b" placeholder="B" aria-label="Bin" value="${H(b)}">
+    <button type="button" class="icon-btn" aria-label="Remove location row" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>
+    <input class="lr-n lr-name" placeholder="Location name, e.g. Devices shelf" aria-label="Location name">`;
+  document.getElementById('lr-list').appendChild(div);
+}
+async function saveLocationsFor(wid) {
+  let made = 0; const errs = [];
+  for (const row of document.querySelectorAll('#lr-list .lr')) {
+    const body = {zone: row.querySelector('.lr-z').value, rack: row.querySelector('.lr-r').value, shelf: row.querySelector('.lr-s').value, bin: row.querySelector('.lr-b').value,
+      description: row.querySelector('.lr-n').value};
+    if (![body.zone, body.rack, body.shelf, body.bin].some(v => v.trim())) continue;
+    try { await api('/api/warehouses/' + wid + '/locations', {json: body}); made++; } catch (e) { errs.push(e.message); }
+  }
+  const rg = {zone: val('rg-z'), rack: val('rg-r'), shelves: val('rg-s'), bins: val('rg-b'), description: val('rg-n')};
+  if ((rg.shelves || '').trim() || (rg.bins || '').trim()) {
+    try { const d = await api('/api/warehouses/' + wid + '/locations/generate', {json: rg}); made += d.created; if (d.skipped) errs.push(d.skipped + ' already existed'); }
+    catch (e) { errs.push(e.message); }
+  }
+  return {made, errs};
+}
+
+function openWarehouseForm(id) {
+  const w = id ? WH.find(x => x.id === id) : null;
+  openPanel(w ? 'Edit warehouse' : 'Add Warehouse', w ? w.name : 'Warehouse details and storage locations', `
+    <div class="pf"><label for="wf-name">Warehouse Name</label><input id="wf-name" value="${H(w ? w.name : '')}" placeholder="e.g. Dubai main store"></div>
+    <div class="pf"><label for="wf-address">Address / City</label><input id="wf-address" value="${H(w ? w.address || '' : '')}" placeholder="e.g. Al Quoz, Dubai"></div>
+    <div class="pf"><label for="wf-manager">Responsible Person</label><input id="wf-manager" value="${H(w ? w.manager || '' : '')}" placeholder="Name"></div>
+    ${can('stock.adjust') ? `<div class="p-sec"><i class="fa fa-table-cells"></i> ${w ? 'Add more locations' : 'Locations'}</div>${locRowsBlock()}` : ''}
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveWarehouseForm(${w ? w.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${w ? 'Save changes' : 'Save Warehouse'}</button></div>`);
+  if (can('stock.adjust')) addLocRow();
+}
+async function saveWarehouseForm(id, btn) {
+  const name = val('wf-name').trim();
+  if (!name) { toast('Enter the warehouse name.', 'error'); document.getElementById('wf-name').focus(); return; }
+  await busy(btn, async () => {
+    const w = id ? WH.find(x => x.id === id) : null;
+    const body = {name, address: val('wf-address'), manager: val('wf-manager')};
+    let wid = id;
+    if (id) await api('/api/warehouses/' + id, {method: 'PUT', json: Object.assign(body, {active: !!w.active})});
+    else wid = (await api('/api/warehouses', {json: body})).warehouse.id;
+    const r = can('stock.adjust') ? await saveLocationsFor(wid) : {made: 0, errs: []};
+    closePanel();
+    toast((id ? 'Warehouse updated' : 'Warehouse added') + (r.made ? ' with ' + r.made + ' location' + (r.made !== 1 ? 's' : '') : '') + '.' + (r.errs.length ? ' Note: ' + r.errs.join('; ') : ''), r.errs.length ? 'error' : undefined);
+    await loadWarehousePage();
+  });
+}
+function openLocationForm(wid) {
+  if (!WH.some(w => w.active)) { toast('Add a warehouse first.', 'error'); return; }
+  const def = wid || val('loc-wh') || (WH.find(w => w.active) || {}).id;
+  openPanel('Add Location', 'Zones, racks, shelves and bins', `
+    <div class="pf"><label for="lf-w">Warehouse</label><select id="lf-w">${whOptions(def)}</select></div>
+    <div class="p-sec"><i class="fa fa-table-cells"></i> Locations</div>
+    ${locRowsBlock()}
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveLocationForm(this)"><i class="fa fa-floppy-disk"></i> Save locations</button></div>`);
+  addLocRow();
+}
+async function saveLocationForm(btn) {
+  const wid = val('lf-w');
+  if (!wid) { toast('Choose a warehouse.', 'error'); return; }
+  await busy(btn, async () => {
+    const r = await saveLocationsFor(wid);
+    if (!r.made && !r.errs.length) { toast('Fill in at least one location (zone, rack, shelf or bin).', 'error'); return; }
+    closePanel();
+    toast(r.made + ' location' + (r.made !== 1 ? 's' : '') + ' added.' + (r.errs.length ? ' Note: ' + r.errs.join('; ') : ''), r.errs.length ? 'error' : undefined);
+    await loadWarehousePage();
+  });
+}
+let LOCS = {};
+async function getLocs(wid, force) {
+  if (!wid) return [];
+  if (!LOCS[wid] || force) {
+    try { LOCS[wid] = (await api('/api/warehouses/' + wid + '/locations')).locations; } catch { LOCS[wid] = []; }
+  }
+  return LOCS[wid];
+}
+function locOptions(wid, sel, firstLabel = 'Unassigned') {
+  const list = (LOCS[wid] || []).filter(l => l.active);
+  return `<option value="">${firstLabel}</option>` + list.map(l => `<option value="${l.id}" ${String(sel) === String(l.id) ? 'selected' : ''}>${H(l.code)}${l.description ? ' – ' + H(l.description) : ''}</option>`).join('');
+}
+async function fillLocSelect(whSelId, locSelId, sel) {
+  const wid = val(whSelId), el = document.getElementById(locSelId);
+  if (!el) return;
+  await getLocs(wid);
+  el.innerHTML = locOptions(wid, sel);
+  el.disabled = !wid;
+}
+async function openWarehouse(id) {
+  const w = WH.find(x => x.id === id); if (!w) return;
+  let L = {locations: [], unassigned_units: 0, unassigned_products: 0};
+  try { L = await api('/api/warehouses/' + id + '/locations'); LOCS[id] = L.locations; } catch {}
+  const rows = PRODUCTS.map(p => ({p, b: (p.by_warehouse || []).find(x => x.warehouse_id === id)})).filter(x => x.b && (x.b.on_hand || x.b.reserved));
+  const st = whStock(id);
+  const canLoc = can('stock.adjust');
+  const locRows = L.locations.map(l => `<tr class="${l.active ? '' : 'row-inactive'}"><td><b>${H(l.code)}</b>${l.description ? `<span class="sub">${H(l.description)}</span>` : ''}</td>
+      <td class="num">${fmtN(l.products)}</td><td class="num">${fmtN(l.units)}</td>
+      <td class="num">${canLoc ? `<button class="icon-btn" style="margin-left:auto" title="${l.active ? 'Deactivate' : 'Activate'}" aria-label="${l.active ? 'Deactivate' : 'Activate'} ${H(l.code)}" onclick="toggleLoc(${l.id}, ${l.active ? 0 : 1}, ${id})"><i class="fa ${l.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button>` : (l.active ? '' : 'Inactive')}</td></tr>`).join('');
+  openPanel(w.name, [w.address, w.manager && 'Responsible: ' + w.manager].filter(Boolean).join(' · '), `
+    <span class="badge ${w.active ? 'badge-ok' : 'badge-muted'}">${w.active ? 'Active' : 'Inactive'}</span>
+    <dl class="kv" style="margin-top:14px"><dt>Products in stock</dt><dd>${fmtN(st.products)}</dd><dt>Units on hand</dt><dd>${fmtN(st.units)}</dd>
+      <dt>Stock value</dt><dd>AED ${fmtN(Math.round(st.value))}</dd><dt>Locations</dt><dd>${fmtN(L.locations.filter(l => l.active).length)} active</dd></dl>
+    <div class="p-sec"><i class="fa fa-table-cells"></i> Storage locations</div>
+    ${L.locations.length || L.unassigned_units ? `<table class="mini"><thead><tr><th>Location</th><th class="num">Products</th><th class="num">Units</th><th></th></tr></thead><tbody>
+      ${locRows}${L.unassigned_units ? `<tr><td><i>Unassigned</i><span class="sub">Not in a bin yet</span></td><td class="num">${fmtN(L.unassigned_products)}</td><td class="num">${fmtN(L.unassigned_units)}</td><td></td></tr>` : ''}
+    </tbody></table>` : '<p class="pf-hint">No locations yet. Add zones, racks, shelves and bins below.</p>'}
+    ${canLoc ? `<div class="p-actions"><button class="pbtn" onclick="openLocationForm(${id})"><i class="fa fa-plus"></i> Add locations</button></div>` : ''}
+    <div class="p-sec"><i class="fa fa-cubes"></i> Stock in this warehouse</div>
+    ${rows.length ? `<table class="mini"><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
+      ${rows.map(({p, b}) => `<tr><td>${H(p.name)}<span class="sub">${H(p.sku)}${(b.locations || []).length ? ' · ' + b.locations.map(x => H(x.code) + ' ×' + x.on_hand).join(', ') : ''}</span></td><td class="num">${fmtN(b.on_hand)}</td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>`).join('')}
+    </tbody></table>` : '<p class="pf-hint">No stock in this warehouse yet.</p>'}
+    ${can('settings') ? `<div class="p-actions"><button class="pbtn" onclick="toggleWarehouse(${w.id})">${w.active ? '<i class="fa fa-ban"></i> Deactivate' : '<i class="fa fa-check"></i> Activate'}</button>
+      <button class="pbtn primary" onclick="editWarehouse(${w.id})"><i class="fa fa-pen"></i> Edit</button></div>` : ''}`);
+}
+async function toggleLoc(lid, active, wid) {
+  await busy(null, async () => {
+    await api('/api/locations/' + lid, {method: 'PUT', json: {active: !!active}});
+    toast(active ? 'Location activated.' : 'Location deactivated.'); await getLocs(wid, true); openWarehouse(wid); loadAllLocs(); renderWarehousesAdmin();
+  });
+}
+function editWarehouse(id) { openWarehouseForm(id); }
+async function saveWarehouse(id, btn) {
+  const w = WH.find(x => x.id === id);
+  await busy(btn, async () => {
+    await api('/api/warehouses/' + id, {method: 'PUT', json: {name: val('ew-name'), address: val('ew-address'), manager: val('ew-manager'), active: !!w.active}});
+    closePanel(); toast('Warehouse updated.'); await loadWarehouses(); renderWarehousesAdmin();
+  });
+}
+async function toggleWarehouse(id) {
+  const w = WH.find(x => x.id === id); if (!w) return;
+  if (w.active && !confirm('Deactivate ' + w.name + '? It won’t be available for new orders or stock moves.')) return;
+  await busy(null, async () => {
+    await api('/api/warehouses/' + id, {method: 'PUT', json: {name: w.name, address: w.address, manager: w.manager, active: !w.active}});
+    toast(w.active ? 'Warehouse deactivated.' : 'Warehouse activated.'); closePanel(); await loadWarehousePage();
+  });
+}
+
+// ── users ────────────────────────────────────────────────────────
+let USERS = [];
+let PROJECTS = [];
+async function loadUsers() {
+  try { [USERS, PROJECTS] = await Promise.all([api('/api/users'), api('/api/projects')]); } catch (e) { USERS = USERS || []; }
+  if (!WH.length) await loadWarehouses();
+  renderUsers();
+}
+function userStatus(u) {
+  if (!u.active) return ['badge-muted', 'Deactivated'];
+  if (!u.has_password) return ['badge-low', 'Invite pending'];
+  return ['badge-ok', 'Active'];
+}
+function renderUsers() {
+  document.getElementById('usr-count').textContent = USERS.filter(u => u.active).length + ' active';
+  document.getElementById('usr-body').innerHTML = USERS.length ? USERS.map(u => {
+    const [cls, label] = userStatus(u);
+    return `<tr onclick="openUserForm(${u.id})" class="${u.active ? '' : 'row-inactive'}">
+      <td><b>${H(u.name)}</b>${u.id === ME.id ? ' <span class="badge badge-muted">You</span>' : ''}</td><td>${H(u.email)}</td>
+      <td>${H(u.phone || '—')}</td><td>${H(u.role_name || ROLE_LABEL[u.role] || u.role)}</td><td>${H(u.warehouse || '—')}</td><td>${H(u.project || '—')}</td>
+      <td><span class="badge ${cls}">${label}</span></td></tr>`;
+  }).join('') : '<tr class="empty-row"><td colspan="7">No users yet.</td></tr>';
+}
+function projectOptions(wid, sel) {
+  const list = PROJECTS.filter(p => p.active && String(p.warehouse_id) === String(wid));
+  return `<option value="">${wid ? (list.length ? 'No project' : 'No projects yet – add one below') : 'Choose a warehouse first'}</option>` +
+    list.map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${H(p.name)}</option>`).join('') +
+    (wid ? '<option value="__new">+ New project…</option>' : '');
+}
+function onUserWarehouse() {
+  document.getElementById('uf-proj').innerHTML = projectOptions(val('uf-wh'), '');
+  onUserProject();
+}
+function onUserProject() {
+  const isNew = val('uf-proj') === '__new';
+  document.getElementById('uf-newproj-wrap').style.display = isNew ? '' : 'none';
+  if (isNew) document.getElementById('uf-newproj').focus();
+}
+function openUserForm(id) {
+  const u = id ? USERS.find(x => x.id === id) : null;
+  const self = u && u.id === ME.id;
+  const wid = u ? (u.warehouse_id || '') : '';
+  openPanel(u ? 'Edit user' : 'Add User', u ? u.email : 'They’ll get a link to set their own password', `
+    <div class="pf"><label for="uf-name">Name</label><input id="uf-name" value="${H(u ? u.name : '')}" placeholder="Full name" autocomplete="off"></div>
+    <div class="pf"><label for="uf-email">Email</label><input id="uf-email" type="email" value="${H(u ? u.email : '')}" placeholder="name@company.com" ${u ? 'readonly' : ''} autocomplete="off"></div>
+    <div class="pf"><label for="uf-phone">Contact number</label><input id="uf-phone" type="tel" value="${H(u ? u.phone : '')}" placeholder="+971 50 123 4567" autocomplete="off"></div>
+    <div class="pf"><label for="uf-role">Role</label><select id="uf-role" ${self ? 'disabled' : ''}>
+      ${(ROLES_LIST.length ? ROLES_LIST : Object.keys(ROLE_LABEL).map(k => ({key: k, name: ROLE_LABEL[k], active: true})))
+          .filter(r => r.active || (u && u.role === r.key))
+          .map(r => `<option value="${r.key}" ${(u ? u.role : 'requester') === r.key ? 'selected' : ''}>${H(r.name)}</option>`).join('')}</select>
+      <span class="pf-hint">Manage roles and their permissions in Settings → Roles.</span>
+      ${self ? '<span class="pf-hint">You can’t change your own role.</span>' : ''}</div>
+    <div class="p-sec"><i class="fa fa-diagram-project"></i> Project assignment</div>
+    <div class="pf"><label for="uf-wh">Warehouse</label><select id="uf-wh" onchange="onUserWarehouse()">${whOptions(wid, 'No warehouse')}</select></div>
+    <div class="pf"><label for="uf-proj">Project</label><select id="uf-proj" onchange="onUserProject()">${projectOptions(wid, u ? u.project_id : '')}</select>
+      <span class="pf-hint">Projects are managed in Settings → Projects.</span></div>
+    <div class="pf" id="uf-newproj-wrap" style="display:none"><label for="uf-newproj">New project name</label><input id="uf-newproj" placeholder="e.g. NEOM Site A"></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveUserForm(${u ? u.id : 0}, this)"><i class="fa ${u ? 'fa-floppy-disk' : 'fa-user-plus'}"></i> ${u ? 'Save changes' : 'Add User'}</button></div>
+    ${u ? `<div class="p-actions"><button class="pbtn" onclick="userLink(${u.id})"><i class="fa fa-link"></i> ${u.has_password ? 'Password reset link' : 'New invite link'}</button>
+      ${self ? '' : `<button class="pbtn ${u.active ? 'danger' : ''}" onclick="toggleUser(${u.id})"><i class="fa ${u.active ? 'fa-ban' : 'fa-check'}"></i> ${u.active ? 'Deactivate' : 'Activate'}</button>`}</div>
+      <div id="uf-link"></div>` : ''}`);
+}
+async function saveUserForm(id, btn) {
+  const email = val('uf-email').trim(), proj = val('uf-proj');
+  if (!val('uf-name').trim()) { toast('Enter the name.', 'error'); document.getElementById('uf-name').focus(); return; }
+  if (!id && !email) { toast('Enter the email address.', 'error'); document.getElementById('uf-email').focus(); return; }
+  if (proj === '__new' && !val('uf-newproj').trim()) { toast('Enter the new project name.', 'error'); document.getElementById('uf-newproj').focus(); return; }
+  const u = id ? USERS.find(x => x.id === id) : null;
+  const body = {name: val('uf-name'), phone: val('uf-phone'), role: val('uf-role'), warehouse_id: val('uf-wh') || null,
+    project_id: proj && proj !== '__new' ? proj : null, new_project: proj === '__new' ? val('uf-newproj') : ''};
+  await busy(btn, async () => {
+    if (id) {
+      await api('/api/users/' + id, {method: 'PUT', json: Object.assign(body, {active: u.active})});
+      closePanel(); toast('User updated.');
+    } else {
+      const d = await api('/api/users', {json: Object.assign(body, {email})});
+      closePanel(); toast('Added ' + d.user.email + '.'); showLink(d.link, d.emailed, 'invite');
+    }
+    loadSettingsLists();
+  });
+}
+function showLink(link, emailed, what, target = 'usr-link') {
+  const el = document.getElementById(target) || document.getElementById('usr-link');
+  el.innerHTML = `
+    <p class="set-help" style="margin:14px 0 0">${emailed ? 'We emailed the ' + what + ' link. You can also copy it:' : 'Email isn’t set up here, so send this ' + what + ' link to the person yourself. It works once.'}</p>
+    <div class="link-box" style="margin-bottom:14px"><input readonly value="${H(link)}" aria-label="${what} link" onclick="this.select()">
+      <button class="tbl-reset" onclick="copyText('${H(link)}')"><i class="fa fa-copy"></i> Copy</button></div>`;
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); toast('Link copied.'); }
+  catch { toast('Select the link and copy it manually.', 'error'); }
+}
+async function toggleUser(id) {
+  const u = USERS.find(x => x.id === id);
+  if (u.active && !confirm('Deactivate ' + u.email + '? They’ll be signed out and can’t sign in.')) return;
+  await busy(null, async () => { await api('/api/users/' + id, {method: 'PUT', json: {role: u.role, active: !u.active, name: u.name}}); closePanel(); toast(u.active ? 'User deactivated.' : 'User activated.'); loadSettingsLists(); });
+}
+async function userLink(id) {
+  await busy(null, async () => { const d = await api('/api/users/' + id + '/link', {method: 'POST'}); showLink(d.link, d.emailed, d.purpose === 'invite' ? 'invite' : 'reset', 'uf-link'); });
+}
+
+// ── roles & projects (Settings) ──────────────────────────────────
+let ROLES_LIST = [], PERM_LIST = [];
+async function loadRoles() {
+  try { const d = await api('/api/roles'); ROLES_LIST = d.roles; PERM_LIST = d.permissions; } catch {}
+  ROLE_LABEL = Object.fromEntries(ROLES_LIST.map(r => [r.key, r.name]));
+}
+function renderRoles() {
+  const lbl = Object.fromEntries(PERM_LIST.map(p => [p.key, p.label]));
+  document.getElementById('rol-count').textContent = ROLES_LIST.filter(r => r.active).length + ' active';
+  document.getElementById('rol-body').innerHTML = ROLES_LIST.map(r => `
+    <tr onclick="openRoleForm(${r.id})" class="${r.active ? '' : 'row-inactive'}"><td><b>${H(r.name)}</b>${r.system ? ' <span class="badge badge-muted">Built-in</span>' : ''}${r.description ? `<span class="sub" style="display:block;font-size:12px;color:var(--muted)">${H(r.description)}</span>` : ''}</td>
+      <td style="white-space:normal;max-width:520px">${r.locked ? 'Everything' : (r.perms.length ? r.perms.map(p => H(lbl[p] || p)).join(' · ') : '<i>View only</i>')}</td>
+      <td class="num">${fmtN(r.users)}</td><td><span class="badge ${r.active ? 'badge-ok' : 'badge-muted'}">${r.active ? 'Active' : 'Inactive'}</span></td></tr>`).join('');
+}
+function openRoleForm(id) {
+  const r = id ? ROLES_LIST.find(x => x.id === id) : null;
+  const locked = r && r.locked;
+  openPanel(r ? (locked ? r.name : 'Edit role') : 'Add Role', locked ? 'Full access – can’t be changed' : 'Everyone can view the dashboard, shipments, inventory and orders', `
+    <div class="pf"><label for="rf-name">Role name</label><input id="rf-name" value="${H(r ? r.name : '')}" placeholder="e.g. Site Supervisor" ${locked ? 'readonly' : ''}></div>
+    <div class="pf"><label for="rf-desc">Description (optional)</label><input id="rf-desc" value="${H(r ? r.description : '')}" placeholder="Who this role is for" ${locked ? 'readonly' : ''}></div>
+    <div class="p-sec"><i class="fa fa-key"></i> Permissions</div>
+    <div class="perm-list">${PERM_LIST.map(p => `<label class="perm"><input type="checkbox" class="rf-perm" value="${p.key}" ${locked || (r && r.perms.includes(p.key)) ? 'checked' : ''} ${locked ? 'disabled' : ''}> <span>${H(p.label)}</span></label>`).join('')}</div>
+    ${locked ? '' : `<div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveRoleForm(${r ? r.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${r ? 'Save changes' : 'Add Role'}</button></div>
+      ${r ? `<div class="p-actions"><button class="pbtn ${r.active ? 'danger' : ''}" onclick="toggleRole(${r.id})"><i class="fa ${r.active ? 'fa-ban' : 'fa-check'}"></i> ${r.active ? 'Deactivate role' : 'Activate role'}</button></div>` : ''}`}`);
+}
+async function saveRoleForm(id, btn) {
+  if (!val('rf-name').trim()) { toast('Enter a role name.', 'error'); document.getElementById('rf-name').focus(); return; }
+  const r = id ? ROLES_LIST.find(x => x.id === id) : null;
+  const body = {name: val('rf-name'), description: val('rf-desc'), perms: [...document.querySelectorAll('.rf-perm:checked')].map(c => c.value), active: r ? r.active : true};
+  await busy(btn, async () => {
+    await api('/api/roles' + (id ? '/' + id : ''), {method: id ? 'PUT' : 'POST', json: body});
+    closePanel(); toast(id ? 'Role updated.' : 'Role added.'); await loadSettingsLists();
+  });
+}
+async function toggleRole(id) {
+  const r = ROLES_LIST.find(x => x.id === id);
+  await busy(null, async () => {
+    await api('/api/roles/' + id, {method: 'PUT', json: {name: r.name, description: r.description, perms: r.perms, active: !r.active}});
+    closePanel(); toast(r.active ? 'Role deactivated.' : 'Role activated.'); await loadSettingsLists();
+  });
+}
+function renderProjects() {
+  document.getElementById('prj-count').textContent = PROJECTS.filter(p => p.active).length + ' active';
+  document.getElementById('prj-body').innerHTML = PROJECTS.length ? PROJECTS.map(p => `
+    <tr onclick="openProjectForm(${p.id})" class="${p.active ? '' : 'row-inactive'}"><td><b>${H(p.name)}</b></td><td>${H(p.warehouse || '—')}</td>
+      <td class="num">${fmtN(p.users)}</td><td><span class="badge ${p.active ? 'badge-ok' : 'badge-muted'}">${p.active ? 'Active' : 'Inactive'}</span></td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="4">No projects yet. Click “Add Project” to create one under a warehouse.</td></tr>';
+}
+function openProjectForm(id) {
+  const p = id ? PROJECTS.find(x => x.id === id) : null;
+  if (!WH.some(w => w.active)) { toast('Add a warehouse first on the Warehouses page.', 'error'); return; }
+  openPanel(p ? 'Edit project' : 'Add Project', 'Each project is supplied from one warehouse', `
+    <div class="pf"><label for="pf-name">Project name</label><input id="pf-name" value="${H(p ? p.name : '')}" placeholder="e.g. NEOM Site A"></div>
+    <div class="pf"><label for="pf-wh">Warehouse</label><select id="pf-wh">${whOptions(p ? p.warehouse_id : '')}</select>
+      ${p ? '<span class="pf-hint">Moving a project also moves its users to the new warehouse.</span>' : ''}</div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveProjectForm(${p ? p.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${p ? 'Save changes' : 'Add Project'}</button></div>
+    ${p ? `<div class="p-actions"><button class="pbtn ${p.active ? 'danger' : ''}" onclick="toggleProject(${p.id})"><i class="fa ${p.active ? 'fa-ban' : 'fa-check'}"></i> ${p.active ? 'Deactivate project' : 'Activate project'}</button></div>` : ''}`);
+}
+async function saveProjectForm(id, btn) {
+  if (!val('pf-name').trim()) { toast('Enter the project name.', 'error'); document.getElementById('pf-name').focus(); return; }
+  if (!val('pf-wh')) { toast('Choose a warehouse.', 'error'); return; }
+  const p = id ? PROJECTS.find(x => x.id === id) : null;
+  await busy(btn, async () => {
+    await api('/api/projects' + (id ? '/' + id : ''), {method: id ? 'PUT' : 'POST', json: {name: val('pf-name'), warehouse_id: val('pf-wh'), active: p ? p.active : true}});
+    closePanel(); toast(id ? 'Project updated.' : 'Project added.'); await loadSettingsLists();
+  });
+}
+async function toggleProject(id) {
+  const p = PROJECTS.find(x => x.id === id);
+  await busy(null, async () => {
+    await api('/api/projects/' + id, {method: 'PUT', json: {name: p.name, warehouse_id: p.warehouse_id, active: !p.active}});
+    closePanel(); toast(p.active ? 'Project deactivated.' : 'Project activated.'); await loadSettingsLists();
+  });
+}
+async function loadSettingsLists() {
+  await loadRoles();
+  await loadUsers();
+  renderRoles(); renderProjects();
+}
+
+// ── Order List module ────────────────────────────────────────────
+let PEOPLE = [], OL_CAN_CHOOSE = false;
+async function loadOrderListPage() {
+  try {
+    const [pp, prods, ords] = await Promise.all([api('/api/people'), api('/api/products'), api('/api/orders')]);
+    PEOPLE = pp.people; OL_CAN_CHOOSE = pp.can_choose; PRODUCTS = prods; ORDERS = ords;
+  } catch (e) { toast(e.message, 'error'); }
+  renderOrderLists();
+}
+function orderListFormHtml() {
+  return `
+    <div class="ol-grid">
+      <div class="pf ol-wide"><label for="ol-user">Requested by</label><select id="ol-user" onchange="onOlUser()"></select></div>
+      <div class="pf"><label for="ol-project">Project</label><input id="ol-project" readonly placeholder="Filled from the user"></div>
+      <div class="pf"><label for="ol-wh">Warehouse</label><input id="ol-wh" readonly placeholder="Filled from the project"></div>
+      <div class="pf"><label for="ol-phone">Contact number</label><input id="ol-phone" readonly placeholder="Filled from the user"></div>
+      <div class="pf"><label for="ol-email">Email</label><input id="ol-email" readonly placeholder="Filled from the user"></div>
+    </div>
+    <div class="ol-warn" id="ol-warn" style="display:none"></div>
+    <div class="p-sec"><i class="fa fa-microchip"></i> Hardware</div>
+    <div class="ol-head" aria-hidden="true"><span>Hardware</span><span class="num">Available</span><span class="num">Requested</span><span></span></div>
+    <div id="ol-lines"></div>
+    <button type="button" class="pbtn" style="width:100%" onclick="addOlLine()"><i class="fa fa-plus"></i> Add hardware</button>
+    <div class="ol-grid" style="margin-top:14px">
+      <div class="pf"><label for="ol-urg">Urgency</label><select id="ol-urg"><option>Normal</option><option>Urgent</option></select></div>
+      <div class="pf ol-wide"><label for="ol-notes">Notes (optional)</label><input id="ol-notes" placeholder="e.g. Needed for installation on Monday"></div>
+    </div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" id="ol-create" onclick="createOrderList(this)"><i class="fa fa-file-circle-plus"></i> Create Order List</button></div>`;
+}
+async function openOrderListForm() {
+  if (!PEOPLE.length) await loadOrderListPage();
+  openPanel('Create Order List', 'Choose the user, then the hardware they need', orderListFormHtml());
+  const sel = document.getElementById('ol-user');
+  sel.innerHTML = (OL_CAN_CHOOSE ? '<option value="">Choose a user</option>' : '') +
+    PEOPLE.map(u => `<option value="${u.id}">${H(u.name)}${u.project ? ' · ' + H(u.project) : ''}</option>`).join('');
+  sel.value = OL_CAN_CHOOSE ? '' : String(ME.id); sel.disabled = !OL_CAN_CHOOSE;
+  addOlLine(); onOlUser();
+}
+function olUser() { return PEOPLE.find(u => String(u.id) === val('ol-user')); }
+function olWarehouseId() { const u = olUser(); return u && u.project_id && u.project_active ? u.project_warehouse_id : null; }
+function onOlUser() {
+  const u = olUser();
+  document.getElementById('ol-project').value = u ? (u.project || '') : '';
+  document.getElementById('ol-wh').value = u ? (u.warehouse || '') : '';
+  document.getElementById('ol-phone').value = u ? (u.phone || '') : '';
+  document.getElementById('ol-email').value = u ? u.email : '';
+  const warn = document.getElementById('ol-warn');
+  if (u && (!u.project_id || !u.project_active)) {
+    warn.style.display = '';
+    warn.innerHTML = '<i class="fa fa-triangle-exclamation"></i> ' + H(u.name) + ' has no active project. ' +
+      (can('settings') ? 'Assign one in Settings → Users before creating an order list.' : 'Ask an admin to assign you a project.');
+  } else warn.style.display = 'none';
+  refreshOlLines();
+}
+function olOptions(sel) {
+  const wid = olWarehouseId();
+  return '<option value="">Choose hardware</option>' + PRODUCTS.filter(p => p.active).map(p => {
+    const a = wid ? availAt(p, wid) : 0;
+    return `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${H(p.sku)} – ${H(p.name)}${wid ? ' (' + a + ' available)' : ''}</option>`;
+  }).join('');
+}
+function addOlLine() {
+  const div = document.createElement('div');
+  div.className = 'ol-line';
+  div.innerHTML = `<select class="ol-p" aria-label="Hardware" onchange="updateOlLine(this.parentElement)">${olOptions('')}</select>
+    <span class="ol-avail num" aria-live="polite">—</span>
+    <input class="ol-q" type="number" min="1" placeholder="0" aria-label="Requested quantity" oninput="updateOlLine(this.parentElement)">
+    <button type="button" class="icon-btn" aria-label="Remove line" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>`;
+  document.getElementById('ol-lines').appendChild(div);
+}
+function updateOlLine(row) {
+  const p = PRODUCTS.find(x => String(x.id) === row.querySelector('.ol-p').value), wid = olWarehouseId();
+  const av = row.querySelector('.ol-avail'), q = parseInt(row.querySelector('.ol-q').value, 10) || 0;
+  if (!p) { av.textContent = '—'; av.className = 'ol-avail num'; return; }
+  const a = wid ? availAt(p, wid) : 0;
+  av.textContent = wid ? fmtN(a) + ' ' + (p.unit || '') : 'No warehouse';
+  av.className = 'ol-avail num ' + (a <= 0 || q > a ? 'bad' : 'good');
+  row.querySelector('.ol-q').max = a;
+}
+function refreshOlLines() {
+  document.querySelectorAll('#ol-lines .ol-line').forEach(r => { const s = r.querySelector('.ol-p'), v = s.value; s.innerHTML = olOptions(v); updateOlLine(r); });
+}
+async function createOrderList(btn) {
+  const u = olUser();
+  if (!u) { toast('Choose who the order list is for.', 'error'); document.getElementById('ol-user').focus(); return; }
+  if (!u.project_id || !u.project_active) { toast(u.name + ' has no active project.', 'error'); return; }
+  const wid = olWarehouseId();
+  const items = [], problems = [];
+  document.querySelectorAll('#ol-lines .ol-line').forEach(r => {
+    const pid = r.querySelector('.ol-p').value, q = parseInt(r.querySelector('.ol-q').value, 10);
+    if (!pid && !q) return;
+    const p = PRODUCTS.find(x => String(x.id) === pid);
+    if (!p) { problems.push('Choose hardware for every line.'); return; }
+    if (!(q > 0)) { problems.push('Enter a requested qty for ' + p.name + '.'); return; }
+    if (q > availAt(p, wid)) problems.push('Only ' + availAt(p, wid) + ' of ' + p.name + ' available.');
+    items.push({product_id: pid, qty: q});
+  });
+  if (problems.length) { toast(problems[0], 'error'); return; }
+  if (!items.length) { toast('Add at least one hardware line.', 'error'); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/orders', {json: {requester_id: u.id, project_id: u.project_id, contact: [u.name, u.phone].filter(Boolean).join(' · '),
+      urgency: val('ol-urg'), notes: val('ol-notes'), items}});
+    toast('Order list ' + d.order.number + ' created. Stock reserved.');
+    document.getElementById('panel-title').textContent = 'Order list created';
+    document.getElementById('panel-sub').textContent = d.order.number + ' · ' + u.project;
+    document.getElementById('panel-body').innerHTML = `<div class="ol-success" id="ol-done"><i class="fa fa-circle-check"></i> <span><b>${d.order.number}</b> created for ${H(u.name)} · ${H(u.project)}. The stock is reserved and the warehouse can start picking it in Order Packed.</span></div>
+      <div class="p-actions"><button class="pbtn" onclick="exportOrderPDF(${d.order.id})"><i class="fa fa-file-pdf"></i> Export PDF</button>
+        <button class="pbtn primary" onclick="openOrderListForm()"><i class="fa fa-plus"></i> Create another</button></div>`;
+    await loadOrderListPage(); updateDashboard();
+  });
+}
+function renderOrderLists() {
+  document.getElementById('oll-count').textContent = ORDERS.length + ' order list' + (ORDERS.length !== 1 ? 's' : '');
+  document.getElementById('oll-body').innerHTML = ORDERS.length ? ORDERS.map(o => `
+    <tr><td><a href="#" onclick="event.preventDefault();navigate('orders');openOrder(${o.id})"><b>${o.number}</b></a>${o.urgency === 'Urgent' ? ' <span class="badge badge-urgent">Urgent</span>' : ''}</td>
+      <td>${fmtDate(o.created_at)}</td><td>${H(o.requester || '')}</td><td>${H(o.project || o.destination || '')}</td><td>${H(o.warehouse || '')}</td>
+      <td class="num">${fmtN(o.units)}</td><td><span class="badge badge-${o.status}">${o.status_label}</span></td>
+      <td><button class="tbl-reset" style="height:34px" onclick="exportOrderPDF(${o.id})" aria-label="Export ${o.number} as PDF"><i class="fa fa-file-pdf"></i> PDF</button></td>
+      <td>${delBtn(o, 'deleteOrderList(' + o.id + ', event)', 'Delete order list ' + o.number)}</td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="9">No order lists yet.</td></tr>';
+}
+
+// ── delete order lists / order lines ─────────────────────────────
+function canDeleteOrder(o) {
+  if (o.status === 'shipped') return false;
+  if (can('orders.process') || can('settings')) return true;
+  return can('orders.cancel') && o.requester_id === ME.id && o.status === 'pick_list';
+}
+function delBtn(o, onclick, label) {
+  if (!(can('orders.process') || can('settings') || can('orders.cancel'))) return '';
+  const ok = canDeleteOrder(o);
+  const why = o.status === 'shipped' ? 'Already shipped – delete its shipment first' : 'You can’t delete this order';
+  return `<button class="del-btn" ${ok ? `onclick="${onclick}"` : 'disabled'} title="${H(ok ? label : why)}" aria-label="${H(ok ? label : why)}"><i class="fa fa-trash-can"></i></button>`;
+}
+async function deleteOrderList(id, ev) {
+  if (ev) ev.stopPropagation();
+  const o = ORDERS.find(x => x.id === id);
+  if (!confirm('Delete order list ' + (o ? o.number : '') + '?\n\nAll its items are removed and any reserved stock is released. This can’t be undone.')) return;
+  await busy(null, async () => {
+    const d = await api('/api/orders/' + id, {method: 'DELETE'});
+    toast('Order list ' + d.number + ' deleted.');
+    await loadOrderListPage(); updateDashboard();
+  });
+}
+async function deleteOrderLine(id, ev) {
+  if (ev) ev.stopPropagation();
+  const l = ORDER_LINES.find(x => x.id === id);
+  const only = l && ORDER_LINES.filter(x => x.order_id === l.order_id).length === 1;
+  if (!confirm('Delete ' + (l ? l.name + ' from ' + l.number : 'this item') + '?' + (only ? '\n\nIt’s the only item, so the whole order ' + l.number + ' will be deleted.' : '') + '\n\nReserved stock is released. This can’t be undone.')) return;
+  await busy(null, async () => {
+    const d = await api('/api/order-items/' + id, {method: 'DELETE'});
+    toast(d.order_deleted ? 'Order ' + d.number + ' deleted.' : 'Item removed from ' + d.number + '.');
+    await loadOrders(); updateDashboard();
+  });
+}
+
+// ── inventory & warehouse dashboard ──────────────────────────────
+let invCatChart = null, invTopChart = null, invFlowChart = null, whChart = null;
+const PALETTE = ['#4361ee', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899', '#14b8a6', '#64748b'];
+function goStockStatus(f) { navigate('inventory'); document.getElementById('inv-filter').value = f; renderProducts(); }
+function scrollDash(id) {
+  const el = document.getElementById(id); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+  document.querySelectorAll('.dash-tab').forEach(t => t.classList.toggle('on', t.dataset.target === id));
+}
+function chartReady() { return typeof Chart === 'function'; }
+function remake(old, id, cfg) { if (old) old.destroy(); const el = document.getElementById(id); return chartReady() && el ? new Chart(el.getContext('2d'), cfg) : null; }
+async function loadStockDashboard() {
+  const sel = document.getElementById('dash-wh');
+  if (sel.options.length <= 1 && WH.length) {
+    sel.innerHTML = '<option value="">All warehouses</option>' + WH.filter(w => w.active).map(w => `<option value="${w.id}">${H(w.name)}</option>`).join('');
+  }
+  let d;
+  try { d = await api('/api/dashboard/stock' + (sel.value ? '?warehouse_id=' + sel.value : '')); } catch { return; }
+  const t = d.totals;
+  animateCount('k-products', t.products); animateCount('k-units', t.units); animateCount('k-reserved', t.reserved);
+  animateCount('k-available', t.available); animateCount('k-value', t.value, v => Math.round(v).toLocaleString('en-US'));
+  animateCount('k-low', t.low); animateCount('k-out', t.out);
+  // low-stock table
+  document.getElementById('k-lowcount').textContent = d.low_stock_count + ' item' + (d.low_stock_count !== 1 ? 's' : '');
+  document.getElementById('dash-low').innerHTML = d.low_stock.length ? d.low_stock.map(x => `
+    <tr onclick="goStockStatus('${x.status}')"><td><b>${H(x.sku)}</b></td><td>${H(x.name)}</td><td>${H(x.category || '—')}</td>
+      <td class="num">${fmtN(x.on_hand)}</td><td class="num">${x.min_qty ? fmtN(x.min_qty) : '—'}</td><td class="num">${x.short ? fmtN(x.short) : '—'}</td>
+      <td>${x.warehouses.length ? x.warehouses.map(H).join(', ') : '—'}</td>
+      <td><span class="badge badge-${x.status}">${x.status === 'out' ? 'Out of stock' : 'Low stock'}</span></td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="8">Everything is above its minimum level. 👍</td></tr>';
+  // category donut
+  const cats = d.by_category.filter(c => c.value > 0);
+  document.getElementById('invCatEmpty').style.display = cats.length ? 'none' : '';
+  invCatChart = remake(invCatChart, 'invCatChart', {type: 'doughnut',
+    data: {labels: cats.map(c => c.category), datasets: [{data: cats.map(c => c.value), backgroundColor: cats.map((_, i) => PALETTE[i % PALETTE.length]), borderWidth: 4, borderColor: '#fff', hoverOffset: 8}]},
+    options: {responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {legend: {position: 'bottom', labels: {font: {size: 12, family: 'Inter'}, padding: 14, usePointStyle: true}},
+        tooltip: {callbacks: {label: c => ' ' + c.label + ': AED ' + Math.round(c.raw).toLocaleString('en-US') + ' (' + fmtN(cats[c.dataIndex].units) + ' units)'}},
+        datalabels: {display: false}}}});
+  // top products
+  const top = d.top_products.filter(p => p.on_hand > 0);
+  document.getElementById('invTopEmpty').style.display = top.length ? 'none' : '';
+  invTopChart = remake(invTopChart, 'invTopChart', {type: 'bar',
+    data: {labels: top.map(p => p.sku), datasets: [{label: 'On hand', data: top.map(p => p.on_hand), backgroundColor: 'rgba(67,97,238,.85)', borderRadius: 6, borderSkipped: false}]},
+    options: {indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: {padding: {right: 36}},
+      plugins: {legend: {display: false}, datalabels: {anchor: 'end', align: 'right', color: '#64748b', font: {weight: 'bold', size: 11}},
+        tooltip: {callbacks: {title: c => top[c[0].dataIndex].sku + ' – ' + top[c[0].dataIndex].name,
+          label: c => ' On hand ' + fmtN(top[c.dataIndex].on_hand) + ' · available ' + fmtN(top[c.dataIndex].available) + ' · AED ' + Math.round(top[c.dataIndex].value).toLocaleString('en-US')}}},
+      scales: {x: {beginAtZero: true, grid: {color: '#f1f5f9'}, ticks: {precision: 0}}, y: {grid: {display: false}}}},
+    plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []});
+  // in vs out
+  const months = d.flow.map(f => { const [y, m] = f.month.split('-'); return new Date(+y, +m - 1).toLocaleString('default', {month: 'short', year: '2-digit'}); });
+  invFlowChart = remake(invFlowChart, 'invFlowChart', {type: 'bar',
+    data: {labels: months, datasets: [
+      {label: 'Stock in', data: d.flow.map(f => f.in), backgroundColor: 'rgba(16,185,129,.85)', borderRadius: 6, borderSkipped: false},
+      {label: 'Stock out', data: d.flow.map(f => f.out), backgroundColor: 'rgba(239,68,68,.8)', borderRadius: 6, borderSkipped: false}]},
+    options: {responsive: true, maintainAspectRatio: false,
+      plugins: {legend: {position: 'top', align: 'end', labels: {usePointStyle: true, font: {size: 12, family: 'Inter'}}}, datalabels: {display: false}},
+      scales: {y: {beginAtZero: true, grid: {color: '#f1f5f9'}, ticks: {precision: 0}}, x: {grid: {display: false}}}}});
+  // warehouse cards
+  document.getElementById('dash-whcards').innerHTML = d.warehouses.length ? d.warehouses.map(w => `
+    <div class="wh-card" onclick="navigate('warehouses'); setTimeout(() => openWarehouse(${w.id}), 400)" tabindex="0" role="button" aria-label="Open ${H(w.name)}">
+      <div class="wh-card-top"><div><b>${H(w.name)}</b><small>${H([w.address, w.manager && 'Responsible: ' + w.manager].filter(Boolean).join(' · ') || '—')}</small></div><i class="fa fa-warehouse"></i></div>
+      <div class="wh-stats">
+        <div><span>Products</span><b>${fmtN(w.products)}</b></div><div><span>Units</span><b>${fmtN(w.units)}</b></div>
+        <div><span>Value (AED)</span><b>${Math.round(w.value).toLocaleString('en-US')}</b></div><div><span>Locations</span><b>${fmtN(w.locations)}</b></div>
+      </div>
+      <div class="wh-pipe"><span class="badge badge-pick_list">${w.to_pick} to pick</span><span class="badge badge-picked">${w.to_pack} to pack</span><span class="badge badge-packed">${w.to_ship} ready</span></div>
+    </div>`).join('') : '<div class="chart-empty" style="position:static;padding:30px">No warehouses yet.</div>';
+  // warehouse chart (units + value on two axes)
+  whChart = remake(whChart, 'whChart', {type: 'bar',
+    data: {labels: d.warehouses.map(w => w.name), datasets: [
+      {label: 'Units on hand', data: d.warehouses.map(w => w.units), backgroundColor: 'rgba(14,165,233,.85)', borderRadius: 6, borderSkipped: false, yAxisID: 'y'},
+      {label: 'Stock value (AED)', data: d.warehouses.map(w => w.value), backgroundColor: 'rgba(139,92,246,.8)', borderRadius: 6, borderSkipped: false, yAxisID: 'y1'}]},
+    options: {responsive: true, maintainAspectRatio: false,
+      plugins: {legend: {position: 'top', align: 'end', labels: {usePointStyle: true, font: {size: 12, family: 'Inter'}}}, datalabels: {display: false},
+        tooltip: {callbacks: {label: c => ' ' + c.dataset.label + ': ' + Math.round(c.raw).toLocaleString('en-US')}}},
+      scales: {y: {beginAtZero: true, position: 'left', title: {display: true, text: 'Units'}, ticks: {precision: 0}, grid: {color: '#f1f5f9'}},
+        y1: {beginAtZero: true, position: 'right', title: {display: true, text: 'AED'}, grid: {display: false}}, x: {grid: {display: false}}}}});
+}
+
+// ── PDF export ───────────────────────────────────────────────────
+function fmtWhen(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleString('en-GB', {day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+}
+async function exportShipmentPDF(ev, id) {
+  if (ev) ev.stopPropagation();
+  const r = allRows.find(x => x.id === id);
+  if (!r) { toast('Shipment not found. Refresh and try again.', 'error'); return; }
+  let o = null;
+  if (r.order_id) { try { o = await api('/api/orders/' + r.order_id); } catch {} }
+  let jsPDF;
+  try { jsPDF = await pdfLib(); } catch { toast('PDF library couldn’t load. Check your connection and try again.', 'error'); return; }
+  const doc = new jsPDF({unit: 'pt', format: 'a4'});
+  const W = doc.internal.pageSize.getWidth(), Hh = doc.internal.pageSize.getHeight(), M = 40;
+  const awb = r.awb_no || '—';
+  doc.setFillColor(67, 97, 238); doc.rect(0, 0, W, 70, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Shipment ' + awb, M, 32);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text('Logistic Pro - Exported ' + new Date().toLocaleDateString('en-GB'), M, 52);
+  doc.text('Status: ' + (r.status || '—'), W - M, 52, {align: 'right'});
+  doc.setTextColor(30, 41, 59);
+  const sec = (title, y) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(67, 97, 238); doc.text(title, M, y); doc.setTextColor(30, 41, 59); doc.setFont('helvetica', 'normal'); return y + 6; };
+  const kv = (rows, y) => { doc.autoTable({startY: y, body: rows, theme: 'plain', styles: {fontSize: 10, cellPadding: 4},
+    columnStyles: {0: {fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 130}}, margin: {left: M, right: M}}); return doc.lastAutoTable.finalY; };
+  const cost = r.cost != null && r.cost !== '' ? 'AED ' + Number(r.cost).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
+  let y = sec('Shipment details', 94);
+  y = kv([['AWB No.', awb], ['Ship date', r.date || '—'], ['Cost', cost], ['Status', r.status || '—'],
+          ['AWB document', r.awb_file ? 'Attached (' + r.awb_file + ')' : 'Not attached'], ['Invoice', r.invoice_file ? 'Attached (' + r.invoice_file + ')' : 'Not attached'],
+          ['Recorded on', fmtWhen(r.created_at)], ['Order list', o ? o.number : 'Not linked to an order list']], y + 4);
+  if (o) {
+    y = sec('Order list ' + o.number, y + 22);
+    y = kv([['Requested by', o.requester || '—'], ['Email', o.requester_email || '—'], ['Contact number', o.requester_phone || '—'],
+            ['Project', o.project || '—'], ['Warehouse', o.warehouse + (o.warehouse_address ? ' (' + o.warehouse_address + ')' : '')],
+            ['Destination', o.destination || '—'], ['Urgency', o.urgency || 'Normal'], ['Created', fmtWhen(o.created_at)]].concat(o.notes ? [['Notes', o.notes]] : []), y + 4);
+    y = sec('Packing & dispatch', y + 22);
+    y = kv([['No. of boxes', o.boxes != null ? String(o.boxes) : '—'], ['Weight', o.weight != null && o.weight !== '' ? o.weight + ' kg' : '—'], ['Dimensions', o.dimensions || '—'],
+            ['Picked by', o.picked_by_name ? o.picked_by_name + ' - ' + fmtWhen(o.picked_at) : '—'], ['Packed by', o.packed_by_name ? o.packed_by_name + ' - ' + fmtWhen(o.packed_at) : '—'],
+            ['Shipped by', o.shipped_by_name ? o.shipped_by_name + ' - ' + fmtWhen(o.shipped_at) : '—']].concat(o.return_action ? [['Return', o.return_action === 'restock' ? 'Returned to stock' : 'Scrapped']] : []), y + 4);
+    y = sec('Items', y + 22);
+    doc.autoTable({startY: y + 4, head: [['#', 'SKU', 'Item', 'Pick from', 'Requested', 'Shipped']],
+      body: o.items.map((i, n) => [n + 1, i.sku, i.name, (i.bins || []).map(b => b.code + ' x' + b.qty).join(', ') || '—', i.qty_requested + ' ' + (i.unit || ''), i.qty_picked != null ? i.qty_picked + ' ' + (i.unit || '') : '—']),
+      theme: 'grid', headStyles: {fillColor: [67, 97, 238], fontSize: 10}, styles: {fontSize: 10, cellPadding: 6},
+      columnStyles: {0: {cellWidth: 26}, 4: {halign: 'right'}, 5: {halign: 'right'}}, margin: {left: M, right: M}});
+    y = doc.lastAutoTable.finalY;
+  }
+  y += 60;
+  if (y > Hh - 70) { doc.addPage(); y = 80; }
+  const colW = (W - 2 * M) / 2;
+  ['Prepared by', 'Received by'].forEach((t, i) => {
+    const x = M + i * colW;
+    doc.setDrawColor(148, 163, 184); doc.line(x + 6, y, x + colW - 20, y);
+    doc.setFontSize(9); doc.setTextColor(100, 116, 139); doc.text(t, x + 6, y + 14); doc.text('Name / Signature / Date', x + 6, y + 26);
+  });
+  const pages = doc.internal.getNumberOfPages();
+  for (let pg = 1; pg <= pages; pg++) { doc.setPage(pg); doc.setFontSize(8); doc.setTextColor(148, 163, 184); doc.text('Page ' + pg + ' of ' + pages, W - M, Hh - 20, {align: 'right'}); }
+  const fname = 'Shipment-' + String(awb).replace(/[^A-Za-z0-9_-]+/g, '_') + '.pdf';
+  doc.save(fname);
+  toast('PDF downloaded: ' + fname);
+}
+
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+}
+let _pdfLib = null;
+async function pdfLib() {
+  if (!_pdfLib) _pdfLib = (async () => {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    return window.jspdf.jsPDF;
+  })().catch(e => { _pdfLib = null; throw e; });
+  return _pdfLib;
+}
+async function exportOrderPDF(id) {
+  let o; try { o = await api('/api/orders/' + id); } catch (e) { toast(e.message, 'error'); return; }
+  let jsPDF;
+  try { jsPDF = await pdfLib(); } catch { toast('PDF library couldn’t load. Opening print view instead – choose “Save as PDF”.', 'error'); return printPackingList(id); }
+  const doc = new jsPDF({unit: 'pt', format: 'a4'});
+  const W = doc.internal.pageSize.getWidth(), M = 40;
+  doc.setFillColor(67, 97, 238); doc.rect(0, 0, W, 70, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Order List ' + o.number, M, 32);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text('Logistic Pro - Created ' + fmtDate(o.created_at), M, 52);
+  doc.text('Status: ' + o.status_label + (o.urgency === 'Urgent' ? '  -  URGENT' : ''), W - M, 52, {align: 'right'});
+  doc.setTextColor(30, 41, 59);
+  const info = [['Requested by', o.requester || '—'], ['Email', o.requester_email || '—'], ['Contact number', o.requester_phone || '—'],
+                ['Project', o.project || o.destination || '—'], ['Warehouse', o.warehouse + (o.warehouse_address ? ' (' + o.warehouse_address + ')' : '')]];
+  if (o.notes) info.push(['Notes', o.notes]);
+  doc.autoTable({startY: 90, body: info, theme: 'plain', styles: {fontSize: 10, cellPadding: 4},
+    columnStyles: {0: {fontStyle: 'bold', textColor: [100, 116, 139], cellWidth: 110}}, margin: {left: M, right: M}});
+  doc.autoTable({startY: doc.lastAutoTable.finalY + 14, head: [['#', 'SKU', 'Hardware', 'Location', 'Requested qty', 'Issued qty']],
+    body: o.items.map((i, n) => [n + 1, i.sku, i.name, (i.bins || []).map(b => b.code + ' x' + b.qty).join(', '), i.qty_requested + ' ' + (i.unit || ''), i.qty_picked != null ? String(i.qty_picked) : '']),
+    theme: 'grid', headStyles: {fillColor: [67, 97, 238], fontSize: 10}, styles: {fontSize: 10, cellPadding: 6},
+    columnStyles: {0: {cellWidth: 26}, 4: {halign: 'right'}, 5: {halign: 'right'}}, margin: {left: M, right: M}});
+  let y = doc.lastAutoTable.finalY + 60;
+  if (y > doc.internal.pageSize.getHeight() - 80) { doc.addPage(); y = 80; }
+  const colW = (W - 2 * M) / 3;
+  ['Requested by', 'Approved by', 'Issued by'].forEach((t, i) => {
+    const x = M + i * colW;
+    doc.setDrawColor(148, 163, 184); doc.line(x + 6, y, x + colW - 12, y);
+    doc.setFontSize(9); doc.setTextColor(100, 116, 139); doc.text(t, x + 6, y + 14);
+    doc.text('Name / Signature / Date', x + 6, y + 26);
+  });
+  doc.save('Order-List-' + o.number + '.pdf');
+  toast('PDF downloaded: Order-List-' + o.number + '.pdf');
+}
+
+// ── inventory ────────────────────────────────────────────────────
+function stockState(p) {
+  if (p.available <= 0 && p.on_hand <= 0) return ['out', 'Out of stock'];
+  if (p.min_qty && p.on_hand < p.min_qty) return ['low', 'Low stock'];
+  return ['ok', 'In stock'];
+}
+let CATEGORIES = [];
+async function loadCategories() {
+  try { CATEGORIES = await api('/api/categories'); } catch { CATEGORIES = CATEGORIES || []; }
+  const sel = document.getElementById('inv-cat'), cur = sel.value;
+  sel.innerHTML = '<option value="">All categories</option>' + CATEGORIES.filter(c => c.active || c.products)
+    .map(c => `<option value="${H(c.name)}">${H(c.name)}</option>`).join('');
+  sel.value = cur;
+}
+async function loadProducts() {
+  const wid = val('inv-wh');
+  try { [PRODUCTS] = await Promise.all([api('/api/products' + (wid ? '?warehouse_id=' + wid : '')), loadCategories()]); } catch (e) { PRODUCTS = []; toast(e.message, 'error'); }
+  renderProducts();
+}
+function renderProducts() {
+  const q = (val('inv-search') || '').toLowerCase(), f = val('inv-filter'), cat = (val('inv-cat') || '').toLowerCase();
+  const rows = PRODUCTS.filter(p => p.active || q).filter(p => !q || (p.sku + ' ' + p.name + ' ' + (p.category || '')).toLowerCase().includes(q))
+    .filter(p => !cat || (p.category || '').toLowerCase() === cat)
+    .filter(p => !f || stockState(p)[0] === f);
+  document.getElementById('inv-count').textContent = rows.length + ' product' + (rows.length !== 1 ? 's' : '');
+  document.getElementById('inv-body').innerHTML = rows.length ? rows.map(p => {
+    const [k, l] = stockState(p);
+    return `<tr onclick="openProduct(${p.id})"><td><b>${H(p.sku)}</b></td><td>${H(p.name)}${p.active ? '' : ' <span class="badge badge-muted">Inactive</span>'}</td><td>${H(p.category || '—')}</td>
+      <td class="num">${fmtN(p.on_hand)}</td><td class="num">${fmtN(p.reserved)}</td><td class="num"><b>${fmtN(p.available)}</b></td>
+      <td class="num">${fmtN(p.min_qty)}</td><td><span class="badge badge-${k}">${l}</span></td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="8">${PRODUCTS.length ? 'No products match.' : (can('products.manage') ? 'No products yet. Click “Add product” to add your first one with its current stock.' : 'No products yet.')}</td></tr>`;
+}
+function goLowStock() { navigate('inventory'); document.getElementById('inv-filter').value = 'low'; renderProducts(); }
+async function openProduct(id) {
+  let p = PRODUCTS.find(x => x.id === id);
+  const all = await api('/api/products').catch(() => PRODUCTS);
+  p = all.find(x => x.id === id) || p;
+  const [k, l] = stockState(p);
+  openPanel(p.name, p.sku + (p.category ? ' · ' + p.category : ''), `
+    <span class="badge badge-${k}">${l}</span>
+    <dl class="kv" style="margin-top:14px"><dt>Unit</dt><dd>${H(p.unit || 'pcs')}</dd><dt>Minimum level</dt><dd>${fmtN(p.min_qty)}</dd>
+      <dt>Unit value</dt><dd>AED ${Number(p.unit_value || 0).toFixed(2)}</dd><dt>Stock value</dt><dd>AED ${fmtN(Math.round(p.on_hand * (p.unit_value || 0)))}</dd></dl>
+    <div class="p-sec"><i class="fa fa-warehouse"></i> Stock by warehouse and location</div>
+    ${p.by_warehouse.length ? `<table class="mini"><thead><tr><th>Warehouse / location</th><th class="num">On hand</th><th class="num">Reserved</th><th class="num">Available</th></tr></thead><tbody>
+      ${p.by_warehouse.map(b => `<tr><td><b>${H(b.warehouse)}</b></td><td class="num"><b>${fmtN(b.on_hand)}</b></td><td class="num">${fmtN(b.reserved)}</td><td class="num"><b>${fmtN(b.available)}</b></td></tr>
+        ${(b.locations || []).map(x => `<tr><td style="padding-left:18px">${x.location_id ? H(x.code) : '<i>Unassigned</i>'}</td><td class="num">${fmtN(x.on_hand)}</td><td class="num"></td><td class="num"></td></tr>`).join('')}`).join('')}
+    </tbody></table>` : '<p class="pf-hint">No stock recorded yet.</p>'}
+    <div class="p-actions">
+      ${can('stock.adjust') ? `<button class="pbtn" onclick="openAdjust(${p.id})"><i class="fa fa-sliders"></i> Adjust</button><button class="pbtn" onclick="openTransfer(${p.id})"><i class="fa fa-right-left"></i> Move / transfer</button>` : ''}
+      ${can('products.manage') ? `<button class="pbtn" onclick="openProductForm(${p.id})"><i class="fa fa-pen"></i> Edit product</button>` : ''}
+    </div>
+    <div class="p-sec"><i class="fa fa-clock-rotate-left"></i> Movement history</div>
+    <ul class="hist" id="mv-list"><li><span class="pf-hint">Loading…</span></li></ul>`);
+  try {
+    const mv = await api('/api/products/' + id + '/movements');
+    document.getElementById('mv-list').innerHTML = mv.length ? mv.map(m => `<li><div>${H(m.reason || m.type)}${m.note ? ' – ' + H(m.note) : ''}
+      <small>${H(m.warehouse || '')}${m.location ? ' · ' + H(m.location) : ''} · ${fmtDate(m.created_at)}${m.user_name ? ' · ' + H(m.user_name) : ''}${m.order_id ? ' · PL-' + String(m.order_id).padStart(4, '0') : ''}</small></div>
+      <span class="q ${m.qty > 0 ? 'pos' : 'neg'}">${m.qty > 0 ? '+' : ''}${fmtN(m.qty)}</span></li>`).join('') : '<li><span class="pf-hint">No movements yet.</span></li>';
+  } catch {}
+}
+function categoryOptions(sel) {
+  const list = CATEGORIES.filter(c => c.active || (sel && c.name.toLowerCase() === String(sel).toLowerCase()));
+  const known = list.some(c => sel && c.name.toLowerCase() === String(sel).toLowerCase());
+  return '<option value="">No category</option>' +
+    list.map(c => `<option value="${H(c.name)}" ${sel && c.name.toLowerCase() === String(sel).toLowerCase() ? 'selected' : ''}>${H(c.name)}</option>`).join('') +
+    (sel && !known ? `<option value="${H(sel)}" selected>${H(sel)}</option>` : '') +
+    (can('products.manage') ? '<option value="__new">+ New category…</option>' : '');
+}
+function onProductCat() {
+  const isNew = val('pp-cat') === '__new';
+  document.getElementById('pp-newcat-wrap').style.display = isNew ? '' : 'none';
+  if (isNew) document.getElementById('pp-newcat').focus();
+}
+// ── categories panel ─────────────────────────────────────────────
+async function openCategories() {
+  await loadCategories();
+  openPanel('Categories', 'Used in the Category dropdown when adding products', `
+    <div class="set-add"><input id="cat-new" placeholder="New category, e.g. Accessories" aria-label="New category name" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory(document.getElementById('cat-add'))}">
+      <button type="button" class="mail-add-btn" id="cat-add" onclick="addCategory(this)"><i class="fa fa-plus"></i> Add</button></div>
+    <table class="mini" style="margin-top:16px"><thead><tr><th>Category</th><th class="num">Products</th><th></th></tr></thead><tbody>
+      ${CATEGORIES.length ? CATEGORIES.map(c => `<tr class="${c.active ? '' : 'row-inactive'}"><td><b>${H(c.name)}</b>${c.active ? '' : ' <span class="badge badge-muted">Inactive</span>'}</td>
+        <td class="num">${fmtN(c.products)}</td>
+        <td class="num" style="white-space:nowrap"><button class="icon-btn" style="display:inline-grid;background:#eef2ff;color:var(--primary)" title="Rename" aria-label="Rename ${H(c.name)}" onclick="renameCategory(${c.id})"><i class="fa fa-pen"></i></button>
+          <button class="icon-btn" style="display:inline-grid" title="${c.active ? 'Deactivate' : 'Activate'}" aria-label="${c.active ? 'Deactivate' : 'Activate'} ${H(c.name)}" onclick="toggleCategory(${c.id})"><i class="fa ${c.active ? 'fa-ban' : 'fa-rotate-left'}"></i></button></td></tr>`).join('')
+        : '<tr><td colspan="3" class="pf-hint">No categories yet. Add your first one above.</td></tr>'}
+    </tbody></table>
+    <p class="pf-hint" style="margin-top:12px">Renaming a category updates every product in it. Inactive categories are hidden from the dropdown but kept on existing products.</p>`);
+}
+async function addCategory(btn) {
+  const name = val('cat-new').trim();
+  if (!name) { toast('Enter a category name.', 'error'); document.getElementById('cat-new').focus(); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/categories', {json: {name}});
+    toast(d.reactivated ? 'Category re-activated.' : 'Category added.'); await openCategories(); loadProducts();
+  });
+}
+async function renameCategory(id) {
+  const c = CATEGORIES.find(x => x.id === id); if (!c) return;
+  const name = prompt('Rename category “' + c.name + '” to:', c.name);
+  if (name === null || !name.trim() || name.trim() === c.name) return;
+  await busy(null, async () => {
+    await api('/api/categories/' + id, {method: 'PUT', json: {name: name.trim(), active: !!c.active}});
+    toast('Category renamed' + (c.products ? ' – ' + c.products + ' product' + (c.products !== 1 ? 's' : '') + ' updated.' : '.')); await openCategories(); loadProducts();
+  });
+}
+async function toggleCategory(id) {
+  const c = CATEGORIES.find(x => x.id === id); if (!c) return;
+  await busy(null, async () => {
+    await api('/api/categories/' + id, {method: 'PUT', json: {name: c.name, active: !c.active}});
+    toast(c.active ? 'Category deactivated.' : 'Category activated.'); await openCategories(); loadProducts();
+  });
+}
+async function openProductForm(id) {
+  await loadCategories();
+  const p = id ? PRODUCTS.find(x => x.id === id) : null;
+  if (!p && !WH.some(w => w.active)) { toast('Add a warehouse first on the Warehouses page.', 'error'); return; }
+  if (!p) await Promise.all(WH.filter(w => w.active).map(w => getLocs(w.id)));
+  const inputStyle = 'height:40px;border:1.5px solid var(--border);border-radius:9px;padding:0 10px;font:inherit;min-width:0;width:100%';
+  openPanel(p ? 'Edit product' : 'Add product', p ? p.sku : 'Enter the product and how many you have now', `
+    <div class="pf-row"><div class="pf"><label for="pp-sku">SKU / code</label><input id="pp-sku" value="${H(p ? p.sku : '')}" placeholder="e.g. WC-HUB-01"></div>
+      <div class="pf"><label for="pp-unit">Unit</label><input id="pp-unit" value="${H(p ? p.unit : 'pcs')}"></div></div>
+    <div class="pf"><label for="pp-name">Product name</label><input id="pp-name" value="${H(p ? p.name : '')}"></div>
+    <div class="pf"><label for="pp-cat">Category</label><select id="pp-cat" onchange="onProductCat()">${categoryOptions(p ? p.category : '')}</select></div>
+    <div class="pf" id="pp-newcat-wrap" style="display:none"><label for="pp-newcat">New category name</label><input id="pp-newcat" placeholder="e.g. Accessories"></div>
+    <div class="pf-row"><div class="pf"><label for="pp-min">Minimum level</label><input id="pp-min" type="number" min="0" value="${p ? p.min_qty : 0}"></div>
+      <div class="pf"><label for="pp-val">Unit value (AED)</label><input id="pp-val" type="number" min="0" step="0.01" value="${p ? p.unit_value : 0}"></div></div>
+    ${p ? `<div class="pf"><label for="pp-active">Status</label><select id="pp-active"><option value="1" ${p.active ? 'selected' : ''}>Active</option><option value="0" ${p.active ? '' : 'selected'}>Inactive (hidden from new orders)</option></select></div>`
+      : `<div class="p-sec"><i class="fa fa-cubes"></i> Opening stock (current quantity)</div>
+         ${WH.filter(w => w.active).map(w => `<div style="margin-bottom:10px"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:5px">${H(w.name)}</label>
+           <div class="pf-row"><input class="pp-open" data-wh="${w.id}" type="number" min="0" value="0" aria-label="Quantity in ${H(w.name)}" style="${inputStyle}">
+           <select class="pp-open-loc" data-wh="${w.id}" aria-label="Location in ${H(w.name)}" style="${inputStyle}">${locOptions(w.id, '')}</select></div></div>`).join('')}
+         <p class="pf-hint">Recorded once as the starting balance, in the chosen location. Later changes go through Adjust stock.</p>`}
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button>
+      <button class="pbtn primary" onclick="saveProduct(${p ? p.id : 0}, this)"><i class="fa fa-floppy-disk"></i> ${p ? 'Save changes' : 'Add product'}</button></div>`);
+}
+async function saveProduct(id, btn) {
+  const catSel = val('pp-cat');
+  if (catSel === '__new' && !val('pp-newcat').trim()) { toast('Enter the new category name.', 'error'); document.getElementById('pp-newcat').focus(); return; }
+  const body = {sku: val('pp-sku'), name: val('pp-name'), unit: val('pp-unit'), category: catSel === '__new' ? val('pp-newcat').trim() : catSel, min_qty: val('pp-min'), unit_value: val('pp-val')};
+  if (!body.sku.trim() || !body.name.trim()) { toast('SKU and product name are required.', 'error'); return; }
+  if (id) body.active = val('pp-active') === '1';
+  else body.opening = [...document.querySelectorAll('.pp-open')].map(i => ({warehouse_id: i.dataset.wh, qty: i.value,
+    location_id: (document.querySelector('.pp-open-loc[data-wh="' + i.dataset.wh + '"]') || {}).value || null}));
+  await busy(btn, async () => {
+    await api('/api/products' + (id ? '/' + id : ''), {method: id ? 'PUT' : 'POST', json: body});
+    closePanel(); toast(id ? 'Product updated.' : 'Product added.'); loadProducts();
+  });
+}
+function productOptions(sel) {
+  return '<option value="">Choose product</option>' + PRODUCTS.filter(p => p.active).map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${H(p.sku)} – ${H(p.name)}</option>`).join('');
+}
+async function ensureProducts() { if (!PRODUCTS.length || val('inv-wh')) { try { PRODUCTS = await api('/api/products'); } catch {} } }
+async function openAdjust(pid) {
+  await ensureProducts();
+  if (!PRODUCTS.length) { toast('Add a product first.', 'error'); return; }
+  const wid = val('inv-wh') || ((WH.find(w => w.active) || {}).id || '');
+  await getLocs(wid);
+  openPanel('Adjust stock', 'Recount, damage, or new stock received', `
+    <div class="pf"><label for="aj-p">Product</label><select id="aj-p">${productOptions(pid)}</select></div>
+    <div class="pf-row"><div class="pf"><label for="aj-w">Warehouse</label><select id="aj-w" onchange="fillLocSelect('aj-w','aj-l')">${whOptions(wid)}</select></div>
+      <div class="pf"><label for="aj-l">Location</label><select id="aj-l">${locOptions(wid, '')}</select></div></div>
+    <div class="pf-row"><div class="pf"><label for="aj-dir">Change</label><select id="aj-dir"><option value="1">Add (+)</option><option value="-1">Remove (−)</option></select></div>
+      <div class="pf"><label for="aj-q">Quantity</label><input id="aj-q" type="number" min="1" value="1"></div></div>
+    <div class="pf"><label for="aj-r">Reason</label><select id="aj-r"><option>New stock received</option><option>Stock count correction</option><option>Damaged</option><option>Lost</option><option>Other</option></select></div>
+    <div class="pf"><label for="aj-n">Note (optional)</label><input id="aj-n" placeholder="e.g. PO number, count sheet"></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="saveAdjust(this)"><i class="fa fa-check"></i> Save adjustment</button></div>`);
+}
+async function saveAdjust(btn) {
+  const q = parseInt(val('aj-q'), 10);
+  if (!val('aj-p') || !val('aj-w') || !(q > 0)) { toast('Choose a product, a warehouse and a quantity above zero.', 'error'); return; }
+  await busy(btn, async () => {
+    await api('/api/stock/adjust', {json: {product_id: val('aj-p'), warehouse_id: val('aj-w'), location_id: val('aj-l') || null,
+      qty: q * parseInt(val('aj-dir'), 10), reason: val('aj-r'), note: val('aj-n')}});
+    closePanel(); toast('Stock adjusted.'); loadProducts();
+  });
+}
+async function openTransfer(pid) {
+  await ensureProducts();
+  if (!WH.some(w => w.active)) { toast('Add a warehouse first.', 'error'); return; }
+  const wid = val('inv-wh') || ((WH.find(w => w.active) || {}).id || '');
+  await getLocs(wid);
+  openPanel('Move / transfer stock', 'Between locations in a warehouse, or to another warehouse', `
+    <div class="pf"><label for="tr-p">Product</label><select id="tr-p">${productOptions(pid)}</select></div>
+    <div class="pf-row"><div class="pf"><label for="tr-f">From warehouse</label><select id="tr-f" onchange="fillLocSelect('tr-f','tr-fl')">${whOptions(wid)}</select></div>
+      <div class="pf"><label for="tr-fl">From location</label><select id="tr-fl">${locOptions(wid, '')}</select></div></div>
+    <div class="pf-row"><div class="pf"><label for="tr-t">To warehouse</label><select id="tr-t" onchange="fillLocSelect('tr-t','tr-tl')">${whOptions(wid)}</select></div>
+      <div class="pf"><label for="tr-tl">To location</label><select id="tr-tl">${locOptions(wid, '')}</select></div></div>
+    <div class="pf"><label for="tr-q">Quantity</label><input id="tr-q" type="number" min="1" value="1"></div>
+    <div class="pf"><label for="tr-n">Note (optional)</label><input id="tr-n"></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="saveTransfer(this)"><i class="fa fa-right-left"></i> Move stock</button></div>`);
+}
+async function saveTransfer(btn) {
+  const q = parseInt(val('tr-q'), 10);
+  if (!val('tr-p') || !val('tr-f') || !val('tr-t') || !(q > 0)) { toast('Fill in product, warehouses and quantity.', 'error'); return; }
+  if (val('tr-f') === val('tr-t') && val('tr-fl') === val('tr-tl')) { toast('Choose a different destination location or warehouse.', 'error'); return; }
+  await busy(btn, async () => {
+    await api('/api/stock/transfer', {json: {product_id: val('tr-p'), from_id: val('tr-f'), to_id: val('tr-t'),
+      from_location_id: val('tr-fl') || null, to_location_id: val('tr-tl') || null, qty: q, note: val('tr-n')}});
+    closePanel(); toast(val('tr-f') === val('tr-t') ? 'Stock moved.' : 'Stock transferred.'); loadProducts();
+  });
+}
+
+// ── orders ───────────────────────────────────────────────────────
+let ORDER_LINES = [];
+async function loadOrders() {
+  try { [ORDERS, ORDER_LINES] = await Promise.all([api('/api/orders'), api('/api/order-lines')]); }
+  catch (e) { ORDERS = ORDERS || []; ORDER_LINES = ORDER_LINES || []; toast(e.message, 'error'); }
+  renderOrders();
+}
+const binChips = bins => (bins || []).map(b => `<span class="bin-chip" title="${H(b.name || '')}">${H(b.code)}${b.name ? ' – ' + H(b.name) : ''} ×${fmtN(b.qty)}</span>`).join(' ');
+function goOrders(status) { document.getElementById('ord-filter').value = status; navigate('orders'); renderOrders(); }
+function renderOrders() {
+  const f = val('ord-filter'), q = (val('ord-search') || '').toLowerCase();
+  const lines = ORDER_LINES.filter(l => f === 'open' ? ['pick_list', 'picked', 'packed'].includes(l.status) : (!f || l.status === f))
+    .filter(l => !q || [l.number, l.destination, l.sku, l.name, l.requester, l.awb_no, l.dimensions].join(' ').toLowerCase().includes(q));
+  document.getElementById('oli-count').textContent = lines.length + ' line' + (lines.length !== 1 ? 's' : '');
+  document.getElementById('oli-body').innerHTML = lines.length ? lines.map(l => `
+    <tr onclick="openOrder(${l.order_id})"><td><b>${l.number}</b></td>
+      <td>${H(l.warehouse || '')}</td><td>${H(l.destination || '')}</td><td>${H(l.sku)}</td><td>${H(l.name)}</td>
+      <td class="num">${fmtN(l.qty_requested)}</td><td class="num">${l.qty_picked != null ? fmtN(l.qty_picked) : '—'}</td>
+      <td>${l.status === 'cancelled' ? '—' : binChips(l.bins)}</td>
+      <td class="num">${l.boxes != null ? fmtN(l.boxes) : '—'}</td><td class="num">${l.weight != null && l.weight !== '' ? Number(l.weight).toLocaleString('en-US', {maximumFractionDigits: 2}) : '—'}</td>
+      <td>${H(l.dimensions || '—')}</td><td><span class="badge badge-${l.status}">${l.status_label}</span></td><td>${H(l.requester || '')}</td>
+      <td>${delBtn(l, 'deleteOrderLine(' + l.id + ', event)', 'Delete ' + l.name + ' from ' + l.number)}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="14">No order items in this view.</td></tr>`;
+}
+async function openNewOrder() {
+  if (!WH.some(w => w.active)) { toast('No warehouses yet. An admin needs to add one in Settings.', 'error'); return; }
+  try { PRODUCTS = await api('/api/products'); } catch {}
+  if (!PRODUCTS.some(p => p.active)) { toast('No products in inventory yet.', 'error'); return; }
+  const def = ME.warehouse_id || (WH.find(w => w.active) || {}).id;
+  openPanel('New pick list', 'Request items to be picked and shipped', `
+    <div class="pf"><label for="no-w">Pick from warehouse</label><select id="no-w" onchange="refreshLines()">${whOptions(def)}</select></div>
+    <div class="pf"><label for="no-d">Destination</label><input id="no-d" placeholder="Site, client or address"></div>
+    <div class="pf-row"><div class="pf"><label for="no-c">Receiver contact</label><input id="no-c" placeholder="Name and phone"></div>
+      <div class="pf"><label for="no-u">Urgency</label><select id="no-u"><option>Normal</option><option>Urgent</option></select></div></div>
+    <div class="p-sec"><i class="fa fa-cubes"></i> Items</div>
+    <div id="no-lines"></div>
+    <button class="pbtn" style="width:100%" onclick="addLine()"><i class="fa fa-plus"></i> Add item</button>
+    <div class="pf" style="margin-top:12px"><label for="no-n">Notes (optional)</label><textarea id="no-n"></textarea></div>
+    <div class="p-actions"><button class="pbtn" onclick="closePanel()">Cancel</button><button class="pbtn primary" onclick="submitOrder(this)"><i class="fa fa-paper-plane"></i> Create pick list</button></div>`);
+  addLine();
+}
+function availAt(p, wid) { const b = (p.by_warehouse || []).find(x => String(x.warehouse_id) === String(wid)); return b ? b.available : 0; }
+function lineOptions(sel) {
+  const wid = val('no-w');
+  return '<option value="">Choose product</option>' + PRODUCTS.filter(p => p.active).map(p => {
+    const a = availAt(p, wid);
+    return `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''} ${a <= 0 ? 'disabled' : ''}>${H(p.sku)} – ${H(p.name)} (${a} available)</option>`;
+  }).join('');
+}
+function addLine() {
+  const div = document.createElement('div');
+  div.className = 'line-row';
+  div.innerHTML = `<select class="nl-p" aria-label="Product">${lineOptions('')}</select><input class="nl-q" type="number" min="1" value="1" aria-label="Quantity">
+    <button class="icon-btn" aria-label="Remove item" onclick="this.parentElement.remove()"><i class="fa fa-trash-can"></i></button>`;
+  document.getElementById('no-lines').appendChild(div);
+}
+function refreshLines() { document.querySelectorAll('.nl-p').forEach(s => { const v = s.value; s.innerHTML = lineOptions(v); }); }
+async function submitOrder(btn) {
+  const items = [...document.querySelectorAll('.line-row')].map(r => ({product_id: r.querySelector('.nl-p').value, qty: parseInt(r.querySelector('.nl-q').value, 10)})).filter(i => i.product_id && i.qty > 0);
+  if (!val('no-w')) { toast('Choose a warehouse.', 'error'); return; }
+  if (!val('no-d').trim()) { toast('Enter the destination.', 'error'); document.getElementById('no-d').focus(); return; }
+  if (!items.length) { toast('Add at least one product with a quantity.', 'error'); return; }
+  await busy(btn, async () => {
+    const d = await api('/api/orders', {json: {warehouse_id: val('no-w'), destination: val('no-d'), contact: val('no-c'), urgency: val('no-u'), notes: val('no-n'), items}});
+    closePanel(); toast('Pick list ' + d.order.number + ' created. Stock reserved.'); goOrders(''); loadOrders(); updateDashboard();
+  });
+}
+function stepsBar(status) {
+  const order = ['pick_list', 'picked', 'packed', 'shipped'];
+  const i = order.indexOf(status);
+  return '<div class="steps" aria-hidden="true">' + order.map((_, n) => `<span class="${status === 'cancelled' ? 'x' : (n <= i ? 'on' : '')}"></span>`).join('') + '</div>';
+}
+async function openOrder(id) {
+  let o;
+  try { o = await api('/api/orders/' + id); } catch (e) { toast(e.message, 'error'); return; }
+  if (o.status === 'shipped') await getLocs(o.warehouse_id);
+  const binsTxt = i => (i.bins || []).map(b => `<span class="bin-chip">${H(b.code)} ×${fmtN(b.qty)}</span>`).join(' ');
+  const itemsTable = (editable) => `<table class="mini"><thead><tr><th>Item</th><th>${o.status === 'pick_list' ? 'Pick from' : (o.status === 'cancelled' ? '' : 'Picked from')}</th><th class="num">Requested</th><th class="num">${editable ? 'Picked' : (o.status === 'pick_list' || o.status === 'cancelled' ? '' : 'Picked')}</th></tr></thead><tbody>
+    ${o.items.map(i => `<tr><td>${H(i.name)}<span class="sub">${H(i.sku)}</span></td><td>${o.status === 'cancelled' ? '' : binsTxt(i)}</td><td class="num">${fmtN(i.qty_requested)} ${H(i.unit || '')}</td>
+      <td class="num">${editable ? `<input type="number" class="pk-q" data-item="${i.id}" min="0" max="${i.qty_requested}" value="${i.qty_requested}" aria-label="Picked quantity for ${H(i.name)}">` : (i.qty_picked != null ? fmtN(i.qty_picked) : '')}</td></tr>`).join('')}
+  </tbody></table>`;
+  let action = '';
+  if (o.status === 'pick_list' && can('orders.process'))
+    action = `<div class="p-sec"><i class="fa fa-hand"></i> Pick items</div><p class="pf-hint">Collect the items and confirm what you picked. Lower the number if something is short.</p>
+      <div class="p-actions"><button class="pbtn primary" onclick="confirmPick(${o.id}, this)"><i class="fa fa-check"></i> Confirm picked</button></div>`;
+  else if (o.status === 'picked' && can('orders.process'))
+    action = `<div class="p-sec"><i class="fa fa-box-open"></i> Pack</div>
+      <div class="pf-row"><div class="pf"><label for="pk-b">Boxes</label><input id="pk-b" type="number" min="1" value="1"></div>
+        <div class="pf"><label for="pk-w">Total weight (kg)</label><input id="pk-w" type="number" min="0" step="0.1"></div></div>
+      <div class="pf"><label for="pk-d">Dimensions (optional)</label><input id="pk-d" placeholder="e.g. 40×30×30 cm"></div>
+      <div class="p-actions"><button class="pbtn" onclick="printPackingList(${o.id})"><i class="fa fa-print"></i> Packing list</button>
+        <button class="pbtn primary" onclick="confirmPack(${o.id}, this)"><i class="fa fa-box"></i> Mark as packed</button></div>`;
+  else if (o.status === 'packed' && can('orders.ship'))
+    action = `<div class="p-sec"><i class="fa fa-truck-fast"></i> Create shipment</div>
+      <div class="pf"><label for="sh-a">AWB No.</label><input id="sh-a" placeholder="Courier tracking number"></div>
+      <div class="pf-row"><div class="pf"><label for="sh-c">Cost (AED)</label><input id="sh-c" type="number" min="0" step="0.01"></div>
+        <div class="pf"><label for="sh-d">Ship date</label><input id="sh-d" type="date" value="${new Date().toISOString().slice(0, 10)}"></div></div>
+      <div class="p-actions"><button class="pbtn" onclick="printPackingList(${o.id})"><i class="fa fa-print"></i> Packing list</button>
+        <button class="pbtn success" onclick="confirmShip(${o.id}, this)"><i class="fa fa-truck-fast"></i> Create shipment</button></div>`;
+  else if (o.status === 'shipped' && o.shipment_status === 'Returned' && !o.return_action && can('returns.receive'))
+    action = `<div class="p-sec"><i class="fa fa-rotate-left"></i> Shipment returned</div><p class="pf-hint">Put the items back into stock, or record them as scrapped.</p>
+      <div class="pf"><label for="rt-l">Restock into location</label><select id="rt-l">${locOptions(o.warehouse_id, '')}</select></div>
+      <div class="p-actions"><button class="pbtn" onclick="receiveReturn(${o.id}, 'scrap', this)"><i class="fa fa-trash-can"></i> Scrap</button>
+        <button class="pbtn success" onclick="receiveReturn(${o.id}, 'restock', this)"><i class="fa fa-box-archive"></i> Restock</button></div>`;
+  const canCancel = ['pick_list', 'picked', 'packed'].includes(o.status) && can('orders.cancel') &&
+    (ME.role !== 'requester' || (o.requester_id === ME.id && o.status === 'pick_list'));
+  openPanel(o.number + ' · ' + o.status_label, o.warehouse + ' → ' + o.destination, `
+    ${stepsBar(o.status)}
+    <dl class="kv"><dt>Status</dt><dd><span class="badge badge-${o.status}">${o.status_label}</span>${o.urgency === 'Urgent' ? ' <span class="badge badge-urgent">Urgent</span>' : ''}</dd>
+      <dt>Requested by</dt><dd>${H(o.requester || '—')} · ${fmtDate(o.created_at)}</dd>
+      <dt>Destination</dt><dd>${H(o.destination)}</dd>${o.contact ? `<dt>Contact</dt><dd>${H(o.contact)}</dd>` : ''}
+      ${o.notes ? `<dt>Notes</dt><dd>${H(o.notes)}</dd>` : ''}
+      ${o.picked_by_name ? `<dt>Picked by</dt><dd>${H(o.picked_by_name)} · ${fmtDate(o.picked_at)}</dd>` : ''}
+      ${o.packed_by_name ? `<dt>Packed</dt><dd>${o.boxes} box${o.boxes !== 1 ? 'es' : ''}${o.weight ? ' · ' + o.weight + ' kg' : ''}${o.dimensions ? ' · ' + H(o.dimensions) : ''} (${H(o.packed_by_name)})</dd>` : ''}
+      ${o.awb_no ? `<dt>Shipment</dt><dd>AWB ${H(o.awb_no)} · ${H(o.shipment_status || '')}</dd>` : ''}
+      ${o.return_action ? `<dt>Return</dt><dd>${o.return_action === 'restock' ? 'Restocked' : 'Scrapped'}</dd>` : ''}
+      ${o.cancel_reason ? `<dt>Cancel reason</dt><dd>${H(o.cancel_reason)}</dd>` : ''}</dl>
+    <div class="p-sec"><i class="fa fa-cubes"></i> Items</div>
+    ${itemsTable(o.status === 'pick_list' && can('orders.process'))}
+    ${action}
+    ${canCancel ? `<div class="p-actions"><button class="pbtn danger" onclick="cancelOrder(${o.id}, this)"><i class="fa fa-ban"></i> Cancel order</button></div>` : ''}`);
+}
+async function orderAction(id, path, body, btn, msg) {
+  await busy(btn, async () => {
+    await api('/api/orders/' + id + '/' + path, {json: body});
+    toast(msg); await loadOrders(); updateDashboard(); openOrder(id);
+  });
+}
+function confirmPick(id, btn) {
+  const items = [...document.querySelectorAll('.pk-q')].map(i => ({item_id: i.dataset.item, qty_picked: parseInt(i.value, 10)}));
+  if (items.some(i => isNaN(i.qty_picked) || i.qty_picked < 0)) { toast('Enter a picked quantity for each item.', 'error'); return; }
+  orderAction(id, 'pick', {items}, btn, 'Picking confirmed. Ready to pack.');
+}
+function confirmPack(id, btn) {
+  if (!(parseInt(val('pk-b'), 10) >= 1)) { toast('Enter the number of boxes.', 'error'); return; }
+  orderAction(id, 'pack', {boxes: val('pk-b'), weight: val('pk-w'), dimensions: val('pk-d')}, btn, 'Packed. Logistics has been notified.');
+}
+function confirmShip(id, btn) {
+  if (!val('sh-a').trim()) { toast('Enter the AWB number.', 'error'); document.getElementById('sh-a').focus(); return; }
+  orderAction(id, 'ship', {awb_no: val('sh-a'), cost: val('sh-c'), date: val('sh-d')}, btn, 'Shipment created and stock deducted.').then(loadData);
+}
+function receiveReturn(id, action, btn) {
+  orderAction(id, 'return', {action, location_id: val('rt-l') || null}, btn, action === 'restock' ? 'Items returned to stock.' : 'Return recorded as scrapped.');
+}
+function cancelOrder(id, btn) {
+  const reason = prompt('Why is this order being cancelled? (optional)');
+  if (reason === null) return;
+  orderAction(id, 'cancel', {reason}, btn, 'Order cancelled. Reserved stock released.');
+}
+async function printPackingList(id) {
+  let o; try { o = await api('/api/orders/' + id); } catch (e) { toast(e.message, 'error'); return; }
+  document.getElementById('print-area').innerHTML = `<h1>Packing list ${o.number}</h1><div>Logistic Pro · printed ${new Date().toLocaleDateString('en-GB')}</div>
+    <div class="meta"><div><b>From:</b> ${H(o.warehouse)}</div><div><b>To:</b> ${H(o.destination)}</div>
+      <div><b>Contact:</b> ${H(o.contact || '—')}</div><div><b>Requested by:</b> ${H(o.requester || '—')}</div>
+      <div><b>Boxes:</b> ${o.boxes || '—'}</div><div><b>Weight:</b> ${o.weight ? o.weight + ' kg' : '—'}</div></div>
+    <table><thead><tr><th>#</th><th>SKU</th><th>Item</th><th>Location</th><th>Qty</th><th>Checked</th></tr></thead><tbody>
+      ${o.items.map((i, n) => `<tr><td>${n + 1}</td><td>${H(i.sku)}</td><td>${H(i.name)}</td><td>${(i.bins || []).map(b => H(b.code) + ' ×' + b.qty).join(', ')}</td><td>${i.qty_picked != null ? i.qty_picked : i.qty_requested} ${H(i.unit || '')}</td><td></td></tr>`).join('')}
+    </tbody></table>${o.notes ? `<p><b>Notes:</b> ${H(o.notes)}</p>` : ''}`;
+  window.print();
+}
+
+// ── dashboard extras ─────────────────────────────────────────────
+function renderOps(m) {
+  if (!m) return;
+  animateCount('op-pick', m.to_pick); animateCount('op-pack', m.to_pack);
+  animateCount('op-ship', m.to_ship); animateCount('op-low', m.low_stock);
+}
+
+// returned shipment linked to an order → ask whether to restock
+async function afterShipmentUpdate(rec) {
+  if (!rec || !rec.order_id || rec.status !== 'Returned' || !can('returns.receive')) return;
+  try {
+    const o = await api('/api/orders/' + rec.order_id);
+    if (o.return_action) return;
+    if (confirm('This shipment came from ' + o.number + '. Open it now to restock the returned items into a location?')) {
+      navigate('orders'); openOrder(o.id);
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 // ── init ──────────────────────────────────────────────────────────
-loadData();
+boot();
 
 // ── service worker registration ───────────────────────────────────
 if ('serviceWorker' in navigator) {

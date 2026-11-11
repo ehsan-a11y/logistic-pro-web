@@ -1,4 +1,4 @@
-const CACHE = 'lp-cache-v1';
+const CACHE = 'lp-cache-v2';
 
 // Cache the shell on install
 self.addEventListener('install', e => {
