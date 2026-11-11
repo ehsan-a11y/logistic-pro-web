@@ -872,6 +872,36 @@ th.num{text-align:right}
 .form-card.readonly input:disabled,.form-card.readonly select:disabled{background:#f1f5f9;color:var(--text);opacity:1;cursor:default}
 .form-card.readonly button[onclick="clearForm()"]{display:none !important}
 .form-card.readonly .file-label,.form-card.readonly label:has(input[type=file]){pointer-events:none;opacity:.7}
+.dash-tabs{display:flex;gap:8px;margin:-4px 0 18px;flex-wrap:wrap;position:sticky;top:0;z-index:5;padding:8px 0;background:var(--bg)}
+.dash-tab{height:36px;padding:0 16px;border-radius:999px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.dash-tab:hover{border-color:var(--primary);color:var(--primary)}
+.dash-tab.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.dash-tab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-light)}
+.dash-sec{margin-top:32px;scroll-margin-top:60px}
+.dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.dash-sec-hdr h3{font-size:16px;font-weight:700;display:flex;align-items:center;gap:9px}
+.dash-sec-hdr h3 i{color:var(--primary)}
+.dash-sec-hdr select{height:38px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font:inherit;font-size:13px;padding:0 12px;color:var(--text)}
+.kpi-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.kpi:hover{border-color:var(--primary-light)}
+.kpi span{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi b{font-size:22px;font-variant-numeric:tabular-nums}
+.kpi-blue b{color:#4361ee}.kpi-amber b{color:#d97706}.kpi-red b{color:#dc2626}
+.chart-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px;pointer-events:none}
+.wh-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.wh-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.wh-card:hover,.wh-card:focus-visible{border-color:var(--primary-light);outline:none}
+.wh-card-top{display:flex;justify-content:space-between;gap:10px;margin-bottom:12px}
+.wh-card-top b{display:block;font-size:15px}
+.wh-card-top small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.wh-card-top i{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:#e0f2fe;color:#0284c7;flex-shrink:0}
+.wh-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.wh-stats span{display:block;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.wh-stats b{font-size:15px;font-variant-numeric:tabular-nums}
+.wh-pipe{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi b{font-size:18px}.wh-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .loc-row.lr{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fcfdff}
 .loc-row input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
 .bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
@@ -1030,9 +1060,17 @@ tr.row-inactive td{opacity:.55}
         <div class="ph-icon"><i class="fa fa-chart-pie"></i></div>
         <div class="page-header-text">
           <h2>Dashboard</h2>
-          <p>Overview of all shipment activity</p>
+          <p>Shipments, inventory and warehouses at a glance</p>
         </div>
       </div>
+    </div>
+    <div class="dash-tabs" role="tablist" aria-label="Dashboard sections">
+      <button class="dash-tab on" data-target="dash-ship" onclick="scrollDash('dash-ship')"><i class="fa fa-truck-fast"></i> Shipments</button>
+      <button class="dash-tab" data-target="dash-inv" onclick="scrollDash('dash-inv')"><i class="fa fa-boxes-stacked"></i> Inventory</button>
+      <button class="dash-tab" data-target="dash-whs" onclick="scrollDash('dash-whs')"><i class="fa fa-warehouse"></i> Warehouses</button>
+    </div>
+    <div class="dash-sec" id="dash-ship" style="margin-top:0">
+      <div class="dash-sec-hdr"><h3><i class="fa fa-truck-fast"></i> Shipments</h3></div>
     </div>
 
     <div class="stats-grid">
@@ -1082,7 +1120,7 @@ tr.row-inactive td{opacity:.55}
       <div class="ops-card" onclick="goOrders('pick_list')"><div class="oi" style="background:#e0e7ff;color:#3730a3"><i class="fa fa-hand"></i></div><div><b id="op-pick">0</b><span>To pick</span></div></div>
       <div class="ops-card" onclick="goOrders('picked')"><div class="oi" style="background:#fef3c7;color:#92400e"><i class="fa fa-box-open"></i></div><div><b id="op-pack">0</b><span>To pack</span></div></div>
       <div class="ops-card" onclick="goOrders('packed')"><div class="oi" style="background:#cffafe;color:#155e75"><i class="fa fa-truck-ramp-box"></i></div><div><b id="op-ship">0</b><span>Ready to ship</span></div></div>
-      <div class="ops-card" onclick="goLowStock()"><div class="oi" style="background:#fee2e2;color:#991b1b"><i class="fa fa-triangle-exclamation"></i></div><div><b id="op-low">0</b><span>Low stock items</span></div></div>
+      <div class="ops-card" onclick="goLowStock()"><div class="oi" style="background:#fee2e2;color:#991b1b"><i class="fa fa-triangle-exclamation"></i></div><div><b id="op-low">0</b><span>Low / out of stock</span></div></div>
     </div>
 
     <div class="charts-grid">
@@ -1105,6 +1143,57 @@ tr.row-inactive td{opacity:.55}
           <span class="chart-badge"><i class="fa fa-chart-bar"></i>Bar</span>
         </div>
         <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── Inventory ── -->
+    <div class="dash-sec" id="dash-inv">
+      <div class="dash-sec-hdr">
+        <h3><i class="fa fa-boxes-stacked"></i> Inventory</h3>
+        <select id="dash-wh" aria-label="Warehouse for inventory and warehouse figures" onchange="loadStockDashboard()"><option value="">All warehouses</option></select>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi" onclick="navigate('inventory')"><span>Products</span><b id="k-products">0</b></div>
+        <div class="kpi" onclick="navigate('inventory')"><span>Units on hand</span><b id="k-units">0</b></div>
+        <div class="kpi" onclick="goOrders('open')"><span>Reserved</span><b id="k-reserved">0</b></div>
+        <div class="kpi" onclick="navigate('inventory')"><span>Available</span><b id="k-available">0</b></div>
+        <div class="kpi kpi-blue" onclick="navigate('inventory')"><span>Stock value (AED)</span><b id="k-value">0</b></div>
+        <div class="kpi kpi-amber" onclick="goLowStock()"><span>Low stock</span><b id="k-low">0</b></div>
+        <div class="kpi kpi-red" onclick="goStockStatus('out')"><span>Out of stock</span><b id="k-out">0</b></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-header"><div><h3><i class="fa fa-tags" style="color:var(--primary);margin-right:7px"></i>Stock value by category</h3><p>AED, current stock</p></div><span class="chart-badge"><i class="fa fa-chart-pie"></i>Donut</span></div>
+          <div class="chart-wrap"><canvas id="invCatChart" role="img" aria-label="Stock value by category"></canvas><div class="chart-empty" id="invCatEmpty">No stock yet</div></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header"><div><h3><i class="fa fa-ranking-star" style="color:var(--primary);margin-right:7px"></i>Top products by quantity</h3><p>Units on hand · available shown in the tooltip</p></div><span class="chart-badge"><i class="fa fa-chart-bar"></i>Bar</span></div>
+          <div class="chart-wrap"><canvas id="invTopChart" role="img" aria-label="Top products by quantity on hand"></canvas><div class="chart-empty" id="invTopEmpty">No stock yet</div></div>
+        </div>
+      </div>
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-card-header"><div><h3><i class="fa fa-right-left" style="color:var(--primary);margin-right:7px"></i>Stock in vs out</h3><p>Units per month, last 6 months (received, returned and adjusted in · shipped and written off out)</p></div><span class="chart-badge"><i class="fa fa-chart-column"></i>Bar</span></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="invFlowChart" role="img" aria-label="Stock in and out per month"></canvas></div>
+      </div>
+      <div class="table-card" style="margin-top:16px">
+        <div class="table-hdr">
+          <div class="section-title"><div class="s-icon" style="background:#fee2e2;color:#991b1b"><i class="fa fa-triangle-exclamation"></i></div><h3>Low &amp; out of stock</h3></div>
+          <div class="table-hdr-right"><span class="rec-count" id="k-lowcount">0 items</span></div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="clickable"><thead><tr><th>SKU</th><th>Product</th><th>Category</th><th class="num">On hand</th><th class="num">Minimum</th><th class="num">Short by</th><th>Where</th><th>Status</th></tr></thead>
+            <tbody id="dash-low"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Warehouses ── -->
+    <div class="dash-sec" id="dash-whs">
+      <div class="dash-sec-hdr"><h3><i class="fa fa-warehouse"></i> Warehouses</h3></div>
+      <div class="wh-cards" id="dash-whcards"></div>
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-card-header"><div><h3><i class="fa fa-chart-column" style="color:var(--primary);margin-right:7px"></i>Stock by warehouse</h3><p>Units on hand and stock value (AED)</p></div><span class="chart-badge"><i class="fa fa-chart-column"></i>Bar</span></div>
+        <div class="chart-wrap" style="height:260px"><canvas id="whChart" role="img" aria-label="Units and stock value per warehouse"></canvas></div>
       </div>
     </div>
   </div>
@@ -2064,6 +2153,7 @@ async function updateDashboard() {
   renderStatusChart(d.transit, d.delivered, d.returned);
   renderMonthlyChart(d.monthly || []);
   renderOps(d.modules);
+  loadStockDashboard();
 }
 
 function renderStatusChart(transit, delivered, returned) {
@@ -2870,6 +2960,86 @@ async function deleteOrderLine(id, ev) {
     toast(d.order_deleted ? 'Order ' + d.number + ' deleted.' : 'Item removed from ' + d.number + '.');
     await loadOrders(); updateDashboard();
   });
+}
+
+// ── inventory & warehouse dashboard ──────────────────────────────
+let invCatChart = null, invTopChart = null, invFlowChart = null, whChart = null;
+const PALETTE = ['#4361ee', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#0ea5e9', '#ec4899', '#14b8a6', '#64748b'];
+function goStockStatus(f) { navigate('inventory'); document.getElementById('inv-filter').value = f; renderProducts(); }
+function scrollDash(id) {
+  const el = document.getElementById(id); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+  document.querySelectorAll('.dash-tab').forEach(t => t.classList.toggle('on', t.dataset.target === id));
+}
+function chartReady() { return typeof Chart === 'function'; }
+function remake(old, id, cfg) { if (old) old.destroy(); const el = document.getElementById(id); return chartReady() && el ? new Chart(el.getContext('2d'), cfg) : null; }
+async function loadStockDashboard() {
+  const sel = document.getElementById('dash-wh');
+  if (sel.options.length <= 1 && WH.length) {
+    sel.innerHTML = '<option value="">All warehouses</option>' + WH.filter(w => w.active).map(w => `<option value="${w.id}">${H(w.name)}</option>`).join('');
+  }
+  let d;
+  try { d = await api('/api/dashboard/stock' + (sel.value ? '?warehouse_id=' + sel.value : '')); } catch { return; }
+  const t = d.totals;
+  animateCount('k-products', t.products); animateCount('k-units', t.units); animateCount('k-reserved', t.reserved);
+  animateCount('k-available', t.available); animateCount('k-value', t.value, v => Math.round(v).toLocaleString('en-US'));
+  animateCount('k-low', t.low); animateCount('k-out', t.out);
+  // low-stock table
+  document.getElementById('k-lowcount').textContent = d.low_stock_count + ' item' + (d.low_stock_count !== 1 ? 's' : '');
+  document.getElementById('dash-low').innerHTML = d.low_stock.length ? d.low_stock.map(x => `
+    <tr onclick="goStockStatus('${x.status}')"><td><b>${H(x.sku)}</b></td><td>${H(x.name)}</td><td>${H(x.category || '—')}</td>
+      <td class="num">${fmtN(x.on_hand)}</td><td class="num">${x.min_qty ? fmtN(x.min_qty) : '—'}</td><td class="num">${x.short ? fmtN(x.short) : '—'}</td>
+      <td>${x.warehouses.length ? x.warehouses.map(H).join(', ') : '—'}</td>
+      <td><span class="badge badge-${x.status}">${x.status === 'out' ? 'Out of stock' : 'Low stock'}</span></td></tr>`).join('')
+    : '<tr class="empty-row"><td colspan="8">Everything is above its minimum level. 👍</td></tr>';
+  // category donut
+  const cats = d.by_category.filter(c => c.value > 0);
+  document.getElementById('invCatEmpty').style.display = cats.length ? 'none' : '';
+  invCatChart = remake(invCatChart, 'invCatChart', {type: 'doughnut',
+    data: {labels: cats.map(c => c.category), datasets: [{data: cats.map(c => c.value), backgroundColor: cats.map((_, i) => PALETTE[i % PALETTE.length]), borderWidth: 4, borderColor: '#fff', hoverOffset: 8}]},
+    options: {responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {legend: {position: 'bottom', labels: {font: {size: 12, family: 'Inter'}, padding: 14, usePointStyle: true}},
+        tooltip: {callbacks: {label: c => ' ' + c.label + ': AED ' + Math.round(c.raw).toLocaleString('en-US') + ' (' + fmtN(cats[c.dataIndex].units) + ' units)'}},
+        datalabels: {display: false}}}});
+  // top products
+  const top = d.top_products.filter(p => p.on_hand > 0);
+  document.getElementById('invTopEmpty').style.display = top.length ? 'none' : '';
+  invTopChart = remake(invTopChart, 'invTopChart', {type: 'bar',
+    data: {labels: top.map(p => p.sku), datasets: [{label: 'On hand', data: top.map(p => p.on_hand), backgroundColor: 'rgba(67,97,238,.85)', borderRadius: 6, borderSkipped: false}]},
+    options: {indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: {padding: {right: 36}},
+      plugins: {legend: {display: false}, datalabels: {anchor: 'end', align: 'right', color: '#64748b', font: {weight: 'bold', size: 11}},
+        tooltip: {callbacks: {title: c => top[c[0].dataIndex].sku + ' – ' + top[c[0].dataIndex].name,
+          label: c => ' On hand ' + fmtN(top[c.dataIndex].on_hand) + ' · available ' + fmtN(top[c.dataIndex].available) + ' · AED ' + Math.round(top[c.dataIndex].value).toLocaleString('en-US')}}},
+      scales: {x: {beginAtZero: true, grid: {color: '#f1f5f9'}, ticks: {precision: 0}}, y: {grid: {display: false}}}},
+    plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : []});
+  // in vs out
+  const months = d.flow.map(f => { const [y, m] = f.month.split('-'); return new Date(+y, +m - 1).toLocaleString('default', {month: 'short', year: '2-digit'}); });
+  invFlowChart = remake(invFlowChart, 'invFlowChart', {type: 'bar',
+    data: {labels: months, datasets: [
+      {label: 'Stock in', data: d.flow.map(f => f.in), backgroundColor: 'rgba(16,185,129,.85)', borderRadius: 6, borderSkipped: false},
+      {label: 'Stock out', data: d.flow.map(f => f.out), backgroundColor: 'rgba(239,68,68,.8)', borderRadius: 6, borderSkipped: false}]},
+    options: {responsive: true, maintainAspectRatio: false,
+      plugins: {legend: {position: 'top', align: 'end', labels: {usePointStyle: true, font: {size: 12, family: 'Inter'}}}, datalabels: {display: false}},
+      scales: {y: {beginAtZero: true, grid: {color: '#f1f5f9'}, ticks: {precision: 0}}, x: {grid: {display: false}}}}});
+  // warehouse cards
+  document.getElementById('dash-whcards').innerHTML = d.warehouses.length ? d.warehouses.map(w => `
+    <div class="wh-card" onclick="navigate('warehouses'); setTimeout(() => openWarehouse(${w.id}), 400)" tabindex="0" role="button" aria-label="Open ${H(w.name)}">
+      <div class="wh-card-top"><div><b>${H(w.name)}</b><small>${H([w.address, w.manager && 'Responsible: ' + w.manager].filter(Boolean).join(' · ') || '—')}</small></div><i class="fa fa-warehouse"></i></div>
+      <div class="wh-stats">
+        <div><span>Products</span><b>${fmtN(w.products)}</b></div><div><span>Units</span><b>${fmtN(w.units)}</b></div>
+        <div><span>Value (AED)</span><b>${Math.round(w.value).toLocaleString('en-US')}</b></div><div><span>Locations</span><b>${fmtN(w.locations)}</b></div>
+      </div>
+      <div class="wh-pipe"><span class="badge badge-pick_list">${w.to_pick} to pick</span><span class="badge badge-picked">${w.to_pack} to pack</span><span class="badge badge-packed">${w.to_ship} ready</span></div>
+    </div>`).join('') : '<div class="chart-empty" style="position:static;padding:30px">No warehouses yet.</div>';
+  // warehouse chart (units + value on two axes)
+  whChart = remake(whChart, 'whChart', {type: 'bar',
+    data: {labels: d.warehouses.map(w => w.name), datasets: [
+      {label: 'Units on hand', data: d.warehouses.map(w => w.units), backgroundColor: 'rgba(14,165,233,.85)', borderRadius: 6, borderSkipped: false, yAxisID: 'y'},
+      {label: 'Stock value (AED)', data: d.warehouses.map(w => w.value), backgroundColor: 'rgba(139,92,246,.8)', borderRadius: 6, borderSkipped: false, yAxisID: 'y1'}]},
+    options: {responsive: true, maintainAspectRatio: false,
+      plugins: {legend: {position: 'top', align: 'end', labels: {usePointStyle: true, font: {size: 12, family: 'Inter'}}}, datalabels: {display: false},
+        tooltip: {callbacks: {label: c => ' ' + c.dataset.label + ': ' + Math.round(c.raw).toLocaleString('en-US')}}},
+      scales: {y: {beginAtZero: true, position: 'left', title: {display: true, text: 'Units'}, ticks: {precision: 0}, grid: {color: '#f1f5f9'}},
+        y1: {beginAtZero: true, position: 'right', title: {display: true, text: 'AED'}, grid: {display: false}}, x: {grid: {display: false}}}}});
 }
 
 // ── PDF export ───────────────────────────────────────────────────
