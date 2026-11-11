@@ -867,6 +867,11 @@ th.num{text-align:right}
 @media(max-width:700px){.ol-grid{grid-template-columns:1fr 1fr}.ol-grid .ol-wide3{grid-column:1 / -1}
   .ol-head,.ol-line{grid-template-columns:minmax(0,1fr) 70px 80px 36px}.ol-line select,.ol-line input{font-size:16px}}
 @media(max-width:430px){.bn-item{font-size:9.5px !important;letter-spacing:0 !important}}
+.vo-pill{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;
+  background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;letter-spacing:.2px}
+.form-card.readonly input:disabled,.form-card.readonly select:disabled{background:#f1f5f9;color:var(--text);opacity:1;cursor:default}
+.form-card.readonly button[onclick="clearForm()"]{display:none !important}
+.form-card.readonly .file-label,.form-card.readonly label:has(input[type=file]){pointer-events:none;opacity:.7}
 .loc-row.lr{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fcfdff}
 .loc-row input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
 .bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
@@ -1110,7 +1115,7 @@ tr.row-inactive td{opacity:.55}
       <div class="page-header-left">
         <div class="ph-icon" style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 14px rgba(16,185,129,.35)"><i class="fa fa-box"></i></div>
         <div class="page-header-text">
-          <h2>Shipment</h2>
+          <h2>Shipment <span class="vo-pill" data-viewonly="shipments.edit"><i class="fa fa-eye"></i> View only</span></h2>
           <p>Manage all your shipment records</p>
         </div>
       </div>
@@ -1291,7 +1296,7 @@ tr.row-inactive td{opacity:.55}
     <div class="page-header">
       <div class="page-header-left">
         <div class="ph-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 4px 14px rgba(14,165,233,.35)"><i class="fa fa-warehouse"></i></div>
-        <div class="page-header-text"><h2>Warehouses</h2><p>Locations and the stock held in each</p></div>
+        <div class="page-header-text"><h2>Warehouses <span class="vo-pill" data-viewonly="settings|stock.adjust"><i class="fa fa-eye"></i> View only</span></h2><p>Locations and the stock held in each</p></div>
       </div>
       <div class="hdr-actions">
         <button class="add-btn alt" data-perm="stock.adjust" onclick="openLocationForm()"><i class="fa fa-table-cells"></i> Add Location</button>
@@ -1333,7 +1338,7 @@ tr.row-inactive td{opacity:.55}
     <div class="page-header">
       <div class="page-header-left">
         <div class="ph-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 14px rgba(245,158,11,.35)"><i class="fa fa-box-open"></i></div>
-        <div class="page-header-text"><h2>Order Packed</h2><p>Pick, pack and dispatch order lists</p></div>
+        <div class="page-header-text"><h2>Order Packed <span class="vo-pill" data-viewonly="orders.process|orders.ship"><i class="fa fa-eye"></i> View only</span></h2><p>Pick, pack and dispatch order lists</p></div>
       </div>
     </div>
     <div class="table-card">
@@ -1367,7 +1372,7 @@ tr.row-inactive td{opacity:.55}
     <div class="page-header">
       <div class="page-header-left">
         <div class="ph-icon" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);box-shadow:0 4px 14px rgba(139,92,246,.35)"><i class="fa fa-boxes-stacked"></i></div>
-        <div class="page-header-text"><h2>Inventory</h2><p>Products and stock by warehouse</p></div>
+        <div class="page-header-text"><h2>Inventory <span class="vo-pill" data-viewonly="products.manage|stock.adjust"><i class="fa fa-eye"></i> View only</span></h2><p>Products and stock by warehouse</p></div>
       </div>
       <div class="hdr-actions">
         <button class="add-btn alt" data-perm="products.manage" onclick="openCategories()"><i class="fa fa-tags"></i> Categories</button>
@@ -1638,6 +1643,7 @@ function saveLocal() {
 // ── form helpers ──────────────────────────────────────────────────
 function openNewForm() {
   if (document.getElementById('panel').classList.contains('open')) closePanel();
+  setShipmentFormReadOnly(false);
   selectedId = null;
   clearForm();
   document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
@@ -1981,8 +1987,10 @@ function selectRow(id) {
   const r = allRows.find(x => x.id === id);
   if (!r) return;
 
-  document.getElementById('form-title').textContent = 'Edit Shipment';
-  document.getElementById('form-subtitle').textContent = 'AWB: ' + (r.awb_no || '—');
+  const ro = !can('shipments.edit');
+  setShipmentFormReadOnly(ro);
+  document.getElementById('form-title').textContent = ro ? 'Shipment details' : 'Edit Shipment';
+  document.getElementById('form-subtitle').textContent = 'AWB: ' + (r.awb_no || '—') + (ro ? ' · view only' : '');
   document.getElementById('f-date').value   = r.date   || '';
   document.getElementById('f-awb').value    = r.awb_no || '';
   document.getElementById('f-cost').value   = r.cost   != null ? r.cost : '';
@@ -2272,6 +2280,13 @@ function startApp(user) {
 }
 function applyPerms() {
   document.querySelectorAll('[data-perm]').forEach(el => { el.style.display = can(el.dataset.perm) ? '' : 'none'; });
+  document.querySelectorAll('[data-viewonly]').forEach(el => {
+    el.style.display = el.dataset.viewonly.split('|').some(p => can(p)) ? 'none' : '';
+  });
+}
+function setShipmentFormReadOnly(ro) {
+  ['f-date', 'f-awb', 'f-cost', 'f-status', 'f-awb-file', 'f-inv-file'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = ro; });
+  document.getElementById('form-card').classList.toggle('readonly', ro);
 }
 async function logout() {
   try { await _rawFetch('/api/auth/logout', {method: 'POST'}); } catch {}
