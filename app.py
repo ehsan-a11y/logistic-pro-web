@@ -168,6 +168,7 @@ BOOTSTRAP_ADMIN = os.environ.get('BOOTSTRAP_ADMIN', 'ehsan@wakecap.com').strip()
 
 PERM_LABELS = {
     'orders.create':    'Create pick lists',
+    'orders.view_all':  'See all order lists (otherwise only their own)',
     'orders.process':   'Pick and pack orders',
     'orders.ship':      'Create shipments from orders',
     'orders.cancel':    'Cancel orders',
@@ -183,10 +184,10 @@ ROLE_NAMES = {'admin': 'Admin', 'requester': 'Requester', 'warehouse': 'Warehous
 PERMS = {
     'admin':     {'shipments.edit', 'shipments.delete', 'products.manage', 'stock.adjust',
                   'orders.create', 'orders.process', 'orders.ship', 'orders.cancel',
-                  'returns.receive', 'settings'},
+                  'returns.receive', 'settings', 'orders.view_all'},
     'requester': {'orders.create', 'orders.cancel'},
-    'warehouse': {'stock.adjust', 'orders.process', 'orders.cancel', 'returns.receive'},
-    'logistics': {'shipments.edit', 'orders.ship'},
+    'warehouse': {'stock.adjust', 'orders.process', 'orders.cancel', 'returns.receive', 'orders.view_all'},
+    'logistics': {'shipments.edit', 'orders.ship', 'orders.view_all'},
 }
 ORDER_OPEN = ('pick_list', 'picked', 'packed')
 ORDER_LABEL = {'pick_list': 'To pick', 'picked': 'To pack', 'packed': 'Ready to ship',
@@ -318,6 +319,15 @@ def ensure_modules_db():
             if k not in have:
                 db.run('INSERT INTO roles (key, name, description, perms, system, active, created_at) VALUES ($1,$2,$3,$4,1,1,$5)',
                        (k, ROLE_NAMES[k], '', _json.dumps(sorted(PERMS[k])), _now()))
+        if not db.one("SELECT value FROM app_settings WHERE key = 'migr_orders_view_all'"):
+            for r in db.rows('SELECT id, key, perms FROM roles'):
+                try:
+                    perms = set(_json.loads(r.get('perms') or '[]'))
+                except ValueError:
+                    perms = set()
+                if r['key'] != 'requester' and perms & {'orders.process', 'orders.ship', 'settings'} and 'orders.view_all' not in perms:
+                    db.run('UPDATE roles SET perms = $1 WHERE id = $2', (_json.dumps(sorted(perms | {'orders.view_all'})), r['id']))
+            db.run("INSERT INTO app_settings (key, value) VALUES ('migr_orders_view_all', '1')")
     _modules_ready = True
 
 
@@ -1327,6 +1337,11 @@ def _notify_roles(roles, subject, lines, extra=None):
         send_email(to, subject, _email_shell(subject, body), subject)
 
 
+def _order_scope():
+    """None = may see every order list; otherwise the user id whose own order lists are visible."""
+    return None if can('orders.view_all') else g.user['id']
+
+
 @app.route('/api/orders')
 def orders_list():
     with DB() as db:
@@ -1337,6 +1352,9 @@ def orders_list():
         counts = {}
         for r in db.rows('SELECT order_id, COUNT(*) AS n, SUM(qty_requested) AS q FROM order_items GROUP BY order_id'):
             counts[r['order_id']] = r
+    scope = _order_scope()
+    if scope is not None:
+        rows = [r for r in rows if r['requester_id'] == scope]
     for r in rows:
         r['number'] = 'PL-{:04d}'.format(r['id'])
         r['status_label'] = ORDER_LABEL.get(r['status'], r['status'])
@@ -1356,6 +1374,9 @@ def order_lines():
                         'FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id '
                         'LEFT JOIN warehouses w ON w.id = o.warehouse_id LEFT JOIN users u ON u.id = o.requester_id '
                         'LEFT JOIN shipments s ON s.id = o.shipment_id ORDER BY o.id DESC, i.id')
+        scope = _order_scope()
+        if scope is not None:
+            lines = [ln for ln in lines if ln['requester_id'] == scope]
         codes = {r['id']: (r['code'], r.get('description') or '') for r in db.rows('SELECT id, code, description FROM locations')}
         picks = db.rows('SELECT order_item_id, location_id, qty FROM order_picks ORDER BY id')
         onhand, alloc = _loc_onhand(db), _loc_alloc(db)
@@ -1376,6 +1397,9 @@ def order_lines():
 def orders_get(oid):
     with DB() as db:
         o = _order_full(db, oid)
+    scope = _order_scope()
+    if o and scope is not None and o['requester_id'] != scope:
+        o = None
     return (jsonify(o) if o else (jsonify({'error': 'Not found'}), 404))
 
 
