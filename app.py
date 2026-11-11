@@ -1692,6 +1692,92 @@ def unlink_order_shipment(db, sid):
            "return_action = NULL, updated_at = $1 WHERE id = $2", (_now(), o['id']))
 
 
+@app.route('/api/dashboard/stock')
+def dashboard_stock():
+    """Inventory + warehouse dashboard figures. Optional ?warehouse_id= narrows everything to one warehouse."""
+    wid = request.args.get('warehouse_id', type=int)
+    with DB() as db:
+        prods = db.rows('SELECT * FROM products WHERE active = 1')
+        whs = db.rows('SELECT * FROM warehouses WHERE active = 1 ORDER BY name')
+        smap = _stock_map(db)
+        loc_counts = {r['warehouse_id']: int(r['n']) for r in db.rows('SELECT warehouse_id, COUNT(*) AS n FROM locations WHERE active = 1 GROUP BY warehouse_id')}
+        order_counts = {}
+        for r in db.rows("SELECT warehouse_id, status, COUNT(*) AS n FROM orders WHERE status IN ('pick_list','picked','packed') GROUP BY warehouse_id, status"):
+            order_counts.setdefault(r['warehouse_id'], {})[r['status']] = int(r['n'])
+        mv = db.rows('SELECT warehouse_id, qty, type, created_at FROM stock_movements')
+    wh_ids = [w['id'] for w in whs if wid in (None, w['id'])]
+    by_prod = {}
+    for p in prods:
+        on = sum(smap.get((p['id'], w), {}).get('on_hand', 0) for w in wh_ids)
+        rs = sum(smap.get((p['id'], w), {}).get('reserved', 0) for w in wh_ids)
+        by_prod[p['id']] = (on, rs)
+    tot = {'products': len(prods), 'units': 0, 'reserved': 0, 'value': 0.0, 'low': 0, 'out': 0}
+    cats, low_items, top = {}, [], []
+    for p in prods:
+        on, rs = by_prod[p['id']]
+        val = on * float(p.get('unit_value') or 0)
+        tot['units'] += on; tot['reserved'] += rs; tot['value'] += val
+        c = (p.get('category') or '').strip() or 'Uncategorised'
+        cats.setdefault(c, {'category': c, 'units': 0, 'value': 0.0, 'products': 0})
+        cats[c]['units'] += on; cats[c]['value'] += val; cats[c]['products'] += 1
+        status = None
+        if on <= 0:
+            status = 'out'; tot['out'] += 1
+        elif p.get('min_qty') and on < p['min_qty']:
+            status = 'low'; tot['low'] += 1
+        if status:
+            where = [w['name'] for w in whs if w['id'] in wh_ids and smap.get((p['id'], w['id']), {}).get('on_hand', 0) > 0]
+            low_items.append({'sku': p['sku'], 'name': p['name'], 'category': p.get('category') or '', 'on_hand': on,
+                              'min_qty': p.get('min_qty') or 0, 'short': max(0, (p.get('min_qty') or 0) - on),
+                              'status': status, 'warehouses': where})
+        top.append({'sku': p['sku'], 'name': p['name'], 'on_hand': on, 'available': on - rs, 'value': round(val, 2)})
+    tot['available'] = tot['units'] - tot['reserved']
+    tot['value'] = round(tot['value'], 2)
+    low_items.sort(key=lambda x: (x['status'] != 'out', -x['short'], x['name'].lower()))
+    top.sort(key=lambda x: -x['on_hand'])
+    # stock in / out per month (last 6 months, including this one)
+    now = _dt.datetime.utcnow()
+    months = []
+    y, m = now.year, now.month
+    for _ in range(6):
+        months.append('{:04d}-{:02d}'.format(y, m))
+        m -= 1
+        if m == 0:
+            y, m = y - 1, 12
+    months.reverse()
+    flow = {k: {'month': k, 'in': 0, 'out': 0} for k in months}
+    for r in mv:
+        if r['warehouse_id'] not in wh_ids:
+            continue
+        if r['type'] == 'transfer' and wid is None:
+            continue                       # moves between warehouses don't change the overall total
+        k = (r.get('created_at') or '')[:7]
+        if k in flow:
+            q = int(r['qty'] or 0)
+            if q > 0:
+                flow[k]['in'] += q
+            else:
+                flow[k]['out'] += -q
+    wh_out = []
+    for w in whs:
+        if w['id'] not in wh_ids:
+            continue
+        units = sum(smap.get((p['id'], w['id']), {}).get('on_hand', 0) for p in prods)
+        res = sum(smap.get((p['id'], w['id']), {}).get('reserved', 0) for p in prods)
+        value = sum(smap.get((p['id'], w['id']), {}).get('on_hand', 0) * float(p.get('unit_value') or 0) for p in prods)
+        nprod = sum(1 for p in prods if smap.get((p['id'], w['id']), {}).get('on_hand', 0) > 0)
+        oc = order_counts.get(w['id'], {})
+        wh_out.append({'id': w['id'], 'name': w['name'], 'address': w.get('address') or '', 'manager': w.get('manager') or '',
+                       'products': nprod, 'units': units, 'reserved': res, 'available': units - res, 'value': round(value, 2),
+                       'locations': loc_counts.get(w['id'], 0), 'to_pick': oc.get('pick_list', 0), 'to_pack': oc.get('picked', 0),
+                       'to_ship': oc.get('packed', 0)})
+    return jsonify({'totals': tot,
+                    'by_category': sorted(({**v, 'value': round(v['value'], 2)} for v in cats.values()), key=lambda x: -x['value']),
+                    'top_products': top[:8], 'low_stock': low_items[:15], 'low_stock_count': len(low_items),
+                    'flow': [flow[k] for k in months], 'warehouses': wh_out,
+                    'warehouse_filter': wid})
+
+
 def modules_dashboard():
     with DB() as db:
         counts = {r['status']: int(r['n']) for r in db.rows('SELECT status, COUNT(*) AS n FROM orders GROUP BY status')}
