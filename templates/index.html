@@ -902,6 +902,15 @@ th.num{text-align:right}
 .wh-pipe{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi b{font-size:18px}.wh-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.notif-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.notif{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;cursor:pointer}
+.notif input{position:absolute;opacity:0;width:1px;height:1px}
+.notif i{position:relative;flex-shrink:0;width:38px;height:22px;border-radius:999px;background:#cbd5e1;transition:background .15s}
+.notif i::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.notif input:checked + i{background:var(--primary)}
+.notif input:checked + i::after{transform:translateX(16px)}
+.notif input:focus-visible + i{box-shadow:0 0 0 3px var(--primary-light)}
+@media(max-width:700px){.notif-list{grid-template-columns:1fr}}
 .loc-row.lr{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fcfdff}
 .loc-row input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.1)}
 .bin-chip{display:inline-block;font-size:11px;font-weight:700;background:#ede9fe;color:#5b21b6;border-radius:6px;padding:2px 6px;margin:1px 2px 1px 0;white-space:nowrap}
@@ -1514,7 +1523,7 @@ tr.row-inactive td{opacity:.55}
         </div>
       </div>
       <div class="set-body">
-        <p class="set-help">These addresses receive new-shipment alerts, status changes and the daily summary at 8:00 AM. Changes take effect immediately.</p>
+        <p class="set-help">These addresses receive every email switched on below (order lists, packing, shipments, products, stock alerts, warehouses and the daily summary at 8:00 AM). Changes take effect immediately.</p>
         <div class="set-add">
           <input type="email" id="set-new" placeholder="name@company.com" autocomplete="email"
                  aria-label="Email address to add" onkeydown="if(event.key==='Enter'){event.preventDefault();addRecipient()}">
@@ -1525,6 +1534,9 @@ tr.row-inactive td{opacity:.55}
           <span class="set-count" id="set-count"></span>
           <button type="button" class="tbl-reset" id="set-test-btn" onclick="sendTestEmail()"><i class="fa fa-paper-plane"></i> Send test email</button>
         </div>
+        <div class="p-sec" style="margin-top:22px"><i class="fa fa-bell"></i> Email me when…</div>
+        <p class="set-help" style="margin-top:-4px">Switch each email on or off. People in the flow are also emailed where it makes sense: the warehouse team gets new order lists to pick, logistics gets packed orders, and the requester hears when their order is packed, shipped or cancelled.</p>
+        <div class="notif-list" id="notif-list"><span class="set-count">Loading…</span></div>
       </div>
     </div>
 
@@ -1947,7 +1959,23 @@ function renderRecipients() {
   document.getElementById('set-test-btn').disabled = !recipients.length;
 }
 
+let NOTIF = [];
+async function loadNotifications() {
+  try { NOTIF = (await api('/api/settings/notifications')).events; } catch { NOTIF = []; }
+  document.getElementById('notif-list').innerHTML = NOTIF.map(e => `
+    <label class="notif"><span>${H(e.label)}</span>
+      <input type="checkbox" role="switch" ${e.on ? 'checked' : ''} onchange="toggleNotif('${e.key}', this)" aria-label="${H(e.label)}"><i aria-hidden="true"></i></label>`).join('');
+}
+async function toggleNotif(key, el) {
+  el.disabled = true;
+  try {
+    await api('/api/settings/notifications', {method: 'PUT', json: {events: {[key]: el.checked}}});
+    const e = NOTIF.find(x => x.key === key); toast((e ? e.label : 'Email') + (el.checked ? ' – on.' : ' – off.'));
+  } catch (err) { el.checked = !el.checked; toast(err.message, 'error'); }
+  finally { el.disabled = false; }
+}
 async function loadRecipients() {
+  loadNotifications();
   try {
     const d = await fetch('/api/settings/recipients', {cache: 'no-store'}).then(r => r.json());
     recipients = d.emails || [];
