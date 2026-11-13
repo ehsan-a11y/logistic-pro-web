@@ -725,7 +725,11 @@ def wh_create():
         if db.one('SELECT id FROM warehouses WHERE LOWER(name) = LOWER($1)', (p[0],)):
             return jsonify({'success': False, 'error': 'A warehouse with that name already exists.'}), 409
         wid = db.insert('INSERT INTO warehouses (name, address, manager, active, created_at) VALUES ($1,$2,$3,1,$4)', p + (_now(),))
-        return jsonify({'success': True, 'warehouse': db.one('SELECT * FROM warehouses WHERE id = $1', (wid,))})
+        w = db.one('SELECT * FROM warehouses WHERE id = $1', (wid,))
+    notify_event('warehouse_added', 'New warehouse added: {}'.format(w['name']), 'A new warehouse was added to Logistic Pro.',
+                 [('Warehouse', w['name']), ('Address / city', w.get('address') or '—'), ('Responsible person', w.get('manager') or '—'),
+                  ('Added by', g.user.get('name') or g.user['email'])])
+    return jsonify({'success': True, 'warehouse': w})
 
 
 @app.route('/api/warehouses/<int:wid>', methods=['PUT'])
@@ -1059,20 +1063,20 @@ def _total_on_hand(db, product_id):
 
 
 def _low_stock_check(product_id, before):
-    """Email alert recipients when a product drops below its minimum."""
+    """Email when a product runs out (hits 0) or drops below its minimum level."""
     with DB() as db:
         p = db.one('SELECT * FROM products WHERE id = $1', (product_id,))
         after = _total_on_hand(db, product_id)
-    if not p or not p.get('min_qty') or not (before >= p['min_qty'] > after):
+    if not p:
         return
-    recipients = get_alert_emails()
-    if not (email_configured() and recipients):
-        return
-    subject = 'Low stock: {} ({} left)'.format(p['name'], after)
-    body = ('<p style="margin:0 0 14px">Stock has dropped below the minimum level.</p>' + _detail_rows([
-        ('Product', _esc(p['name'])), ('SKU', _esc(p['sku'])),
-        ('On hand', str(after)), ('Minimum', str(p['min_qty']))]))
-    send_email(recipients, subject, _email_shell(subject, body), '{}\nMinimum: {}'.format(subject, p['min_qty']))
+    rows = [('Product', p['name']), ('SKU', p['sku']), ('Category', p.get('category') or '—'),
+            ('On hand', after), ('Minimum level', p.get('min_qty') or '—')]
+    if before > 0 >= after:
+        notify_event('out_of_stock', 'Out of stock: {} ({})'.format(p['name'], p['sku']),
+                     'This product has run out across all warehouses.', rows, perms=('products.manage',), urgent=True)
+    elif p.get('min_qty') and before >= p['min_qty'] > after:
+        notify_event('low_stock', 'Low stock: {} ({} left)'.format(p['name'], after),
+                     'Stock has dropped below the minimum level.', rows, perms=('products.manage',))
 
 
 @app.route('/api/products')
@@ -1159,7 +1163,16 @@ def products_create():
             if q > 0 and db.one('SELECT id FROM warehouses WHERE id = $1', (w,)) and _loc_ok(db, w, lid):
                 db.run("INSERT INTO stock_movements (product_id, warehouse_id, location_id, qty, type, reason, user_id, created_at) "
                        "VALUES ($1,$2,$3,$4,'opening','Opening stock',$5,$6)", (pid, w, lid, q, g.user['id'], _now()))
-        return jsonify({'success': True, 'id': pid})
+        prow = db.one('SELECT * FROM products WHERE id = $1', (pid,))
+        opening = db.rows('SELECT w.name, SUM(m.qty) AS q FROM stock_movements m JOIN warehouses w ON w.id = m.warehouse_id '
+                          'WHERE m.product_id = $1 GROUP BY w.name ORDER BY w.name', (pid,))
+    notify_event('product_added', 'New product added: {} ({})'.format(prow['name'], prow['sku']), 'A new product was added to inventory.',
+                 [('Product', prow['name']), ('SKU', prow['sku']), ('Category', prow.get('category') or '—'),
+                  ('Unit', prow.get('unit') or 'pcs'), ('Minimum level', prow.get('min_qty') or 0),
+                  ('Unit value (AED)', prow.get('unit_value') or 0),
+                  ('Opening stock', ', '.join('{}: {}'.format(r['name'], int(r['q'] or 0)) for r in opening) or 'None'),
+                  ('Added by', g.user.get('name') or g.user['email'])])
+    return jsonify({'success': True, 'id': pid})
 
 
 @app.route('/api/products/<int:pid>', methods=['PUT'])
@@ -1337,6 +1350,67 @@ def _notify_roles(roles, subject, lines, extra=None):
         send_email(to, subject, _email_shell(subject, body), subject)
 
 
+NOTIFY_EVENTS = [
+    ('order_created',   'New order list created'),
+    ('order_packed',    'Order packed – ready to ship'),
+    ('order_shipped',   'Order shipped'),
+    ('order_cancelled', 'Order cancelled'),
+    ('shipment_added',  'New shipment added'),
+    ('shipment_status', 'Shipment status changed'),
+    ('product_added',   'New product added'),
+    ('low_stock',       'Low stock (below minimum level)'),
+    ('out_of_stock',    'Out of stock'),
+    ('warehouse_added', 'New warehouse added'),
+    ('daily_summary',   'Daily / weekly summary report'),
+]
+
+
+def notify_settings():
+    import json
+    try:
+        saved = json.loads(get_setting('notify_events') or '{}')
+    except Exception:
+        saved = {}
+    return {k: bool(saved.get(k, True)) for k, _ in NOTIFY_EVENTS}
+
+
+def _users_with_perm(perm):
+    rm = _roles_map()
+    with DB() as db:
+        rows = db.rows('SELECT email, role FROM users WHERE active = 1')
+    return [r['email'] for r in rows if perm in rm.get(r['role'], {}).get('perms', set())]
+
+
+def notify_event(event, subject, intro, rows, perms=(), extra=None, urgent=False):
+    """Send one notification email if the event is switched on. Goes to the notification recipients,
+    plus active users holding any of `perms`, plus `extra` addresses (e.g. the requester)."""
+    try:
+        if not email_configured() or not notify_settings().get(event, True):
+            return False
+        to = set(get_alert_emails()) | set(extra or [])
+        for pm in perms:
+            to |= set(_users_with_perm(pm))
+        to = sorted(e for e in to if e and valid_email(e))
+        if not to:
+            return False
+        banner = ('<p style="margin:0 0 14px;padding:10px 12px;border-radius:8px;background:#fee2e2;color:#991b1b;font-weight:bold">'
+                  'Action needed</p>') if urgent else ''
+        body = banner + '<p style="margin:0 0 14px">' + _esc(intro) + '</p>' + _detail_rows([(k, _esc(str(v))) for k, v in rows])
+        text = intro + '\n' + '\n'.join('{}: {}'.format(k, v) for k, v in rows) + '\n' + APP_URL
+        ok, err = send_email(to, subject, _email_shell(subject, body), text)
+        if not ok:
+            print('[email] {} not sent: {}'.format(event, err))
+        return ok
+    except Exception as exc:                      # never let an email problem break the action itself
+        print('[email] {} failed: {}'.format(event, exc))
+        return False
+
+
+def _items_text(o, picked=False):
+    return ', '.join('{} × {}'.format(i['qty_picked'] if picked and i.get('qty_picked') is not None else i['qty_requested'], i['name'])
+                     for i in o.get('items') or [])
+
+
 def _order_scope():
     """None = may see every order list; otherwise the user id whose own order lists are visible."""
     return None if can('orders.view_all') else g.user['id']
@@ -1464,10 +1538,11 @@ def orders_create():
         for pid, q in want.items():
             db.run('INSERT INTO order_items (order_id, product_id, qty_requested) VALUES ($1,$2,$3)', (oid, pid, q))
         o = _order_full(db, oid)
-    _notify_roles({'warehouse', 'admin'}, 'New pick list {} – {}'.format(o['number'], o['warehouse']),
-                  [('Order', o['number']), ('Warehouse', o['warehouse']), ('Destination', o['destination']),
-                   ('Urgency', o['urgency']), ('Requested by', o['requester'] or ''),
-                   ('Items', ', '.join('{} × {}'.format(i['qty_requested'], i['name']) for i in o['items']))])
+    notify_event('order_created', 'New order list {} – {}'.format(o['number'], o.get('project') or o['destination']),
+                 'A new order list was created and its stock is reserved. It is ready to be picked.',
+                 [('Order list', o['number']), ('Requested by', o['requester'] or '—'), ('Project', o.get('project') or '—'),
+                  ('Warehouse', o['warehouse']), ('Destination', o['destination']), ('Urgency', o['urgency']),
+                  ('Items', _items_text(o))], perms=('orders.process',), urgent=o['urgency'] == 'Urgent')
     return jsonify({'success': True, 'order': o})
 
 
@@ -1538,10 +1613,13 @@ def orders_pack(oid):
         db.run("UPDATE orders SET status = 'packed', boxes = $1, weight = $2, dimensions = $3, packed_by = $4, packed_at = $5, updated_at = $6 WHERE id = $7",
                (boxes, weight, (d.get('dimensions') or '').strip(), g.user['id'], _now(), _now(), oid))
         o = _order_full(db, oid)
-    _notify_roles({'logistics', 'admin'}, 'Ready to ship: {} – {}'.format(o['number'], o['destination']),
-                  [('Order', o['number']), ('Warehouse', o['warehouse']), ('Destination', o['destination']),
-                   ('Contact', o.get('contact') or '—'), ('Boxes', str(boxes)), ('Weight (kg)', str(weight or '—')),
-                   ('Urgency', o['urgency'])])
+    notify_event('order_packed', 'Order packed: {} – ready to ship'.format(o['number']),
+                 'This order has been picked and packed and is ready for a courier.',
+                 [('Order list', o['number']), ('Requested by', o['requester'] or '—'), ('Project', o.get('project') or '—'),
+                  ('Warehouse', o['warehouse']), ('Destination', o['destination']), ('Contact', o.get('contact') or '—'),
+                  ('No. of boxes', boxes), ('Weight (kg)', weight if weight is not None else '—'),
+                  ('Dimensions', o.get('dimensions') or '—'), ('Items', _items_text(o, picked=True)), ('Urgency', o['urgency'])],
+                 perms=('orders.ship',), extra=[o['requester_email']] if o.get('requester_email') else [])
     return jsonify({'success': True, 'order': o})
 
 
@@ -1571,9 +1649,12 @@ def orders_ship(oid):
         o = _order_full(db, oid)
         ship = db.one('SELECT * FROM shipments WHERE id = $1', (sid,))
     notify_shipment(ship, 'added')
-    _notify_roles(set(), 'Your order {} has shipped (AWB {})'.format(o['number'], awb),
-                  [('Order', o['number']), ('AWB No.', awb), ('Destination', o['destination']), ('Boxes', str(o.get('boxes') or '—'))],
-                  extra=[o['requester_email']] if o.get('requester_email') else [])
+    notify_event('order_shipped', 'Order {} has shipped (AWB {})'.format(o['number'], awb),
+                 'The order has been handed to the courier.',
+                 [('Order list', o['number']), ('AWB No.', awb), ('Requested by', o['requester'] or '—'),
+                  ('Project', o.get('project') or '—'), ('Destination', o['destination']),
+                  ('No. of boxes', o.get('boxes') or '—'), ('Items', _items_text(o, picked=True))],
+                 extra=[o['requester_email']] if o.get('requester_email') else [])
     for pid, before in befores.items():
         _low_stock_check(pid, before)
     return jsonify({'success': True, 'order': o, 'shipment': ship})
@@ -1594,6 +1675,12 @@ def orders_cancel(oid):
         db.run('DELETE FROM order_picks WHERE order_id = $1', (oid,))
         db.run("UPDATE orders SET status = 'cancelled', cancel_reason = $1, updated_at = $2 WHERE id = $3", (reason, _now(), oid))
         o = _order_full(db, oid)
+    notify_event('order_cancelled', 'Order list {} cancelled'.format(o['number']),
+                 'This order list was cancelled and its reserved stock was released.',
+                 [('Order list', o['number']), ('Cancelled by', g.user.get('name') or g.user['email']), ('Reason', reason or '—'),
+                  ('Requested by', o['requester'] or '—'), ('Project', o.get('project') or '—'), ('Warehouse', o['warehouse']),
+                  ('Items', _items_text(o))],
+                 perms=('orders.process',), extra=[o['requester_email']] if o.get('requester_email') else [])
     return jsonify({'success': True, 'order': o})
 
 
@@ -1947,9 +2034,11 @@ def _detail_rows(pairs):
 
 
 def notify_shipment(row, event, old_status=None):
-    """Email ALERT_EMAILS about a new shipment or a status change."""
+    """Email the notification recipients about a new shipment or a status change."""
     recipients = get_alert_emails()
     if not (email_configured() and recipients and row):
+        return
+    if not notify_settings().get('shipment_added' if event == 'added' else 'shipment_status', True):
         return
     awb = row.get('awb_no') or '—'
     status = row.get('status') or '—'
@@ -2058,9 +2147,31 @@ def cron_summary():
     recipients = get_alert_emails()
     if not (email_configured() and recipients):
         return jsonify({'success': False, 'error': 'Email or recipients not set up.'})
+    if not notify_settings().get('daily_summary', True):
+        return jsonify({'success': True, 'skipped': 'summary report is switched off in Settings'})
     subject, html, text = build_summary(all_shipments(), 7 if weekly else 1)
     ok, err = send_email(recipients, subject, html, text)
     return jsonify({'success': ok, 'error': err})
+
+
+@app.route('/api/settings/notifications', methods=['GET'])
+@requires('settings')
+def notifications_get():
+    st = notify_settings()
+    return jsonify({'events': [{'key': k, 'label': l, 'on': st[k]} for k, l in NOTIFY_EVENTS], 'configured': email_configured()})
+
+
+@app.route('/api/settings/notifications', methods=['PUT'])
+@requires('settings')
+def notifications_put():
+    import json
+    d = (request.get_json(silent=True) or {}).get('events') or {}
+    cur = notify_settings()
+    for k, _ in NOTIFY_EVENTS:
+        if k in d:
+            cur[k] = bool(d[k])
+    set_setting('notify_events', json.dumps(cur))
+    return jsonify({'success': True, 'events': cur})
 
 
 @app.route('/api/settings/recipients', methods=['GET'])
